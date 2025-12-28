@@ -1,0 +1,12 @@
+services:
+  leningmanager:
+    build: .
+    container_name: leningmanager
+    ports:
+      - "8080:80"
+    environment:
+      API_TOKEN: "changeme_dev_token"
+      WEBHOOK_URL: ""
+    volumes:
+      - ./data:/var/www/data
+    restart: unless-stopped
