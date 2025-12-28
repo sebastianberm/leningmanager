@@ -32,7 +32,7 @@ include __DIR__ . '/partials_header.php';
 <div class="row">
   <div class="col-lg-7">
     <div class="card p-3 mb-4">
-      <h3 class="mb-3">Gebruikers</h3>
+      <h1 class="mb-3">Gebruikers</h1>
       <?php if (isset($_GET['ok'])): ?><div class="alert alert-success">Gebruiker aangemaakt.</div><?php endif; ?>
       <table class="table table-hover">
         <thead><tr><th>Naam</th><th>E‑mail</th><th>Rol</th><th>Aangemaakt</th></tr></thead>

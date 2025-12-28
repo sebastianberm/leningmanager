@@ -43,7 +43,7 @@ include __DIR__ . '/partials_header.php';
 <div class="row">
   <div class="col-lg-7">
     <div class="card p-3 mb-4">
-      <h3 class="mb-3">Leningen</h3>
+      <h1 class="mb-3">Leningen</h1>
       <?php if (isset($_GET['ok'])): ?><div class="alert alert-success">Lening opgeslagen.</div><?php endif; ?>
       <table class="table table-hover">
         <thead><tr><th>Naam</th><th>Hoofdsom</th><th>Rente</th><th>Looptijd</th><th>Borrower</th><th></th></tr></thead>

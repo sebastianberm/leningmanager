@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include __DIR__ . '/partials_header.php';
 ?>
 <div class="card p-4">
-  <h2>Eerste gebruiker (admin) aanmaken</h2>
+  <h1>Eerste gebruiker (admin) aanmaken</h1>
   <?php if ($errors): ?>
     <div class="alert alert-danger"><?php echo implode('<br>', array_map('htmlspecialchars', $errors)); ?></div>
   <?php endif; ?>

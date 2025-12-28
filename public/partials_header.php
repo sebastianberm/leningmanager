@@ -35,17 +35,8 @@
         <?php endif; ?>
       </ul>
 <div class="form-check form-switch text-light ms-auto">
-<button id="themeToggle" class="btn btn-sm btn-outline-light">🌙 Dark</button>
-<script>
-document.getElementById('themeToggle').addEventListener('click', () => {
-  const root = document.documentElement;
-  const newMode = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  root.setAttribute('data-theme', newMode);
-  localStorage.setItem('theme', newMode);
-  const btn = document.getElementById('themeToggle');
-  btn.textContent = newMode === 'dark' ? '🌙 Dark' : '☀️ Light';
-});
-</script>
+  <input class="form-check-input" type="checkbox" id="themeSwitch">
+  <label class="form-check-label" for="themeSwitch">Dark</label>
 </div>
 
     </div>

@@ -82,7 +82,7 @@ $projRemaining = array_column($projection, 'remaining');
 <?php include __DIR__ . '/partials_header.php'; ?>
 
 <div class="card p-3 mb-4">
-  <h3><?= h($loan['name']) ?></h3>
+  <h1><?= h($loan['name']) ?></h1>
   <p><strong>Huidige restschuld:</strong> <?= money_fmt($current_remaining) ?>
      (na <?= count($payments) ?> betalingen)</p>
   <?php if ($new_payment > 0): ?>

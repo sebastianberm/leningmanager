@@ -27,7 +27,7 @@ include __DIR__ . '/partials_header.php';
 <div class="row justify-content-center">
   <div class="col-md-5">
     <div class="card p-4">
-      <h2 class="mb-3">Inloggen</h2>
+      <h1 class="mb-3">Inloggen</h1>
       <?php if (isset($_GET['setup'])): ?>
         <div class="alert alert-success">Admin aangemaakt. Log nu in.</div>
       <?php endif; ?>

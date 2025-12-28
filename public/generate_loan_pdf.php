@@ -54,83 +54,79 @@ $pdf->SetAuthor('Lening Manager');
 $pdf->SetTitle('Aflossingen ' . $loan['name'] . ' - ' . $year);
 $pdf->SetSubject('Belastingaangifte overzicht');
 
-$pdf->setPrintHeader(false);
-$pdf->setPrintFooter(false);
+// Header en footer instellen
+$pdf->setPrintHeader(true);
+$pdf->setPrintFooter(true);
+$pdf->SetHeaderData('', 0, 'Leningmanager - Aflossingen Overzicht', 'Jaar: ' . $year);
+$pdf->setHeaderFont(['helvetica', '', 10]);
+$pdf->setFooterFont(['helvetica', '', 8]);
+
+// Margins
+$pdf->SetMargins(15, 27, 15);
+$pdf->SetHeaderMargin(5);
+$pdf->SetFooterMargin(10);
 
 $pdf->AddPage();
 
-$pdf->SetFont('helvetica', 'B', 16);
-$pdf->Cell(0, 10, 'Overzicht Aflossingen', 0, 1, 'C');
+// Titel
+$pdf->SetFont('helvetica', 'B', 18);
+$pdf->SetTextColor(59, 130, 246); // Blauw
+$pdf->Cell(0, 15, 'Overzicht Aflossingen', 0, 1, 'C');
 $pdf->Ln(5);
 
+// Lening details
 $pdf->SetFont('helvetica', '', 12);
+$pdf->SetTextColor(0, 0, 0);
 $pdf->Cell(0, 8, 'Lening: ' . h($loan['name']), 0, 1);
 $pdf->Cell(0, 8, 'Jaar: ' . $year, 0, 1);
 $pdf->Cell(0, 8, 'Hoofdsom: ' . money_fmt($loan['principal']), 0, 1);
 $pdf->Cell(0, 8, 'Rente: ' . $loan['rate'] . '% per jaar', 0, 1);
+$pdf->Cell(0, 8, 'Type: ' . ($loan['type'] === 'annuity' ? 'Annuïteit' : 'Lineair'), 0, 1);
 $pdf->Ln(10);
 
 // Tabel header
-$pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(30, 8, 'Datum', 1, 0, 'C');
-$pdf->Cell(30, 8, 'Bedrag', 1, 0, 'C');
-$pdf->Cell(30, 8, 'Rente', 1, 0, 'C');
-$pdf->Cell(30, 8, 'Aflossing', 1, 1, 'C');
+$pdf->SetFont('helvetica', 'B', 11);
+$pdf->SetFillColor(59, 130, 246); // Blauw
+$pdf->SetTextColor(255, 255, 255);
+$pdf->Cell(35, 10, 'Datum', 1, 0, 'C', true);
+$pdf->Cell(35, 10, 'Bedrag', 1, 0, 'C', true);
+$pdf->Cell(35, 10, 'Rente', 1, 0, 'C', true);
+$pdf->Cell(35, 10, 'Aflossing', 1, 1, 'C', true);
 
+// Tabel data
 $pdf->SetFont('helvetica', '', 10);
+$pdf->SetTextColor(0, 0, 0);
+$fill = false;
 foreach ($yearly_alloc as $a) {
-    $pdf->Cell(30, 8, h($a['date']), 1, 0, 'C');
-    $pdf->Cell(30, 8, money_fmt($a['amount']), 1, 0, 'R');
-    $pdf->Cell(30, 8, money_fmt($a['interest']), 1, 0, 'R');
-    $pdf->Cell(30, 8, money_fmt($a['principal']), 1, 1, 'R');
+    $pdf->SetFillColor(240, 248, 255); // Licht blauw voor alternate
+    $pdf->Cell(35, 8, h($a['date']), 1, 0, 'C', $fill);
+    $pdf->Cell(35, 8, money_fmt($a['amount']), 1, 0, 'R', $fill);
+    $pdf->Cell(35, 8, money_fmt($a['interest']), 1, 0, 'R', $fill);
+    $pdf->Cell(35, 8, money_fmt($a['principal']), 1, 1, 'R', $fill);
+    $fill = !$fill;
 }
 
 $pdf->Ln(5);
-$pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(30, 8, 'Totaal', 1, 0, 'C');
-$pdf->Cell(30, 8, money_fmt($total_amount), 1, 0, 'R');
-$pdf->Cell(30, 8, money_fmt($total_interest), 1, 0, 'R');
-$pdf->Cell(30, 8, money_fmt($total_principal), 1, 1, 'R');
+$pdf->SetFont('helvetica', 'B', 11);
+$pdf->SetFillColor(59, 130, 246);
+$pdf->SetTextColor(255, 255, 255);
+$pdf->Cell(35, 10, 'Totaal', 1, 0, 'C', true);
+$pdf->Cell(35, 10, money_fmt($total_amount), 1, 0, 'R', true);
+$pdf->Cell(35, 10, money_fmt($total_interest), 1, 0, 'R', true);
+$pdf->Cell(35, 10, money_fmt($total_principal), 1, 1, 'R', true);
 
-$pdf->Ln(10);
+$pdf->Ln(15);
 
-// Grafiek toevoegen
-$pdf->AddPage();
-$pdf->SetFont('helvetica', 'B', 16);
-$pdf->Cell(0, 10, 'Grafiek Aflossingen per Maand - ' . $year, 0, 1, 'C');
-$pdf->Ln(10);
+// Samenvatting
+$pdf->SetFont('helvetica', 'B', 14);
+$pdf->SetTextColor(59, 130, 246);
+$pdf->Cell(0, 10, 'Samenvatting', 0, 1);
+$pdf->SetFont('helvetica', '', 12);
+$pdf->SetTextColor(0, 0, 0);
+$pdf->Cell(0, 8, 'Totaal betaald in ' . $year . ': ' . money_fmt($total_amount), 0, 1);
+$pdf->Cell(0, 8, 'Waarvan rente: ' . money_fmt($total_interest), 0, 1);
+$pdf->Cell(0, 8, 'Waarvan aflossing: ' . money_fmt($total_principal), 0, 1);
+$pdf->Cell(0, 8, 'Aantal betalingen: ' . count($yearly_alloc), 0, 1);
 
-// Simpele bar chart
-$chart_width = 150;
-$chart_height = 80;
-$bar_width = $chart_width / 12;
-$max_principal = max($monthly_principal) ?: 1;
-$scale = $chart_height / $max_principal;
-
-$x_start = 20;
-$y_start = $pdf->GetY() + $chart_height + 10;
-
-$pdf->SetFillColor(100, 149, 237); // Cornflower blue
-
-for ($month = 1; $month <= 12; $month++) {
-    $principal = $monthly_principal[$month] ?? 0;
-    $bar_height = $principal * $scale;
-    $x = $x_start + ($month - 1) * $bar_width;
-    $y = $y_start - $bar_height;
-    $pdf->Rect($x, $y, $bar_width - 2, $bar_height, 'F');
-    
-    // Maand label
-    $pdf->SetXY($x, $y_start + 2);
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->Cell($bar_width - 2, 5, date('M', mktime(0, 0, 0, $month, 1)), 0, 0, 'C');
-    $pdf->SetFont('helvetica', '', 10);
-}
-
-// Y-as labels
-$pdf->SetXY($x_start - 15, $y_start - $chart_height);
-$pdf->Cell(10, 5, money_fmt($max_principal), 0, 0, 'R');
-$pdf->SetXY($x_start - 15, $y_start);
-$pdf->Cell(10, 5, '0', 0, 0, 'R');
-
-$pdf->Ln(100);
-?>
+// Output
+$pdf->Output('lening_' . $loan['id'] . '_' . $year . '.pdf', 'I');
