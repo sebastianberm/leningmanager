@@ -1,13 +1,15 @@
 :root {
-  --bg: #0d1117;
-  --card: #161b22;
-  --text: #f0f6fc;
-  --muted: #8b949e;
-  --accent: #3b82f6;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #1e293b;
+  --muted: #64748b;
+  --accent: #d1daed;
+  --accent-hover: #6585dd;
   --success: #22c55e;
   --danger: #ef4444;
   --warning: #f59e0b;
   --info: #3b82f6;
+  --navbar-bg: #d1d5db;
 }
 
 body {
@@ -159,6 +161,7 @@ canvas:hover {
 .btn-primary {
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
   border: none;
+  color: white !important;
 }
 
 .btn-primary:hover {
@@ -179,7 +182,7 @@ canvas:hover {
 
 /* NAVBAR */
 .navbar {
-  background-color: var(--card) !important;
+  background-color: var(--navbar-bg) !important;
   color: var(--text) !important;
   border-bottom: 1px solid var(--muted);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -190,6 +193,9 @@ canvas:hover {
 }
 .navbar a:hover, .navbar .nav-link:hover, .themeToggle:hover, .btn-outline-light:hover {
   color: var(--accent) !important;
+}
+.navbar .form-check-label {
+  color: var(--text) !important;
 }
 
 /* FOCUS STYLES FOR ACCESSIBILITY */
@@ -205,26 +211,16 @@ button:focus, input:focus, select:focus, textarea:focus, a:focus {
   100% { outline-width: 2px; }
 }
 
-/* === THEME SWITCHING === */
-:root[data-theme='light'] {
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --text: #1e293b;
-  --muted: #64748b;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+/* OVERRIDE BOOTSTRAP TEXT CLASSES */
+.text-muted {
+  color: var(--muted) !important;
 }
-
-:root[data-theme='dark'] {
-  --bg: #0f172a;
-  --card: #1e293b;
-  --text: #f1f5f9;
-  --muted: #94a3b8;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text) !important;
 }
-
-/* default mode */
-:root {
-  color-scheme: dark;
+.card a {
+  color: var(--accent) !important;
+}
+.card a:hover {
+  color: var(--accent-hover) !important;
 }

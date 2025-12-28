@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Leningmanager</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="<?= BASE_PATH ?>/assets/style.css" rel="stylesheet">
+  <link href="<?= BASE_PATH ?>/assets/styles.css" rel="stylesheet">
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark mb-4">
@@ -34,10 +34,6 @@
           <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/login.php">Inloggen</a></li>
         <?php endif; ?>
       </ul>
-<div class="form-check form-switch text-light ms-auto">
-  <input class="form-check-input" type="checkbox" id="themeSwitch">
-  <label class="form-check-label" for="themeSwitch">Dark</label>
-</div>
 
     </div>
   </div>
