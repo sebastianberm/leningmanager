@@ -19,7 +19,7 @@ require_api_auth();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $path = $_GET['r'] ?? '';
-$parts = array_values(array_filter(explode('/', $path), 'strlen')));
+$parts = array_values(array_filter(explode('/', $path), 'strlen'));
 
 try {
     if ($method === 'GET' && count($parts)===1 && $parts[0]==='loans') {
@@ -36,6 +36,9 @@ try {
     }
     if ($method === 'GET' && count($parts)===3 && $parts[0]==='loans' && $parts[2]==='payments') {
         $id=(int)$parts[1];
+        $st=$db->prepare("SELECT id FROM loans WHERE id=?");
+        $st->execute([$id]);
+        if (!$st->fetch()) { http_response_code(404); echo json_encode(['error'=>'Not found']); exit; }
         $st=$db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
         $st->execute([$id]);
         echo json_encode($st->fetchAll()); exit;
@@ -46,8 +49,15 @@ try {
         $st->execute([$id]);
         $loan=$st->fetch();
         if (!$loan) { http_response_code(404); echo json_encode(['error'=>'Not found']); exit; }
-        $plan = schedule($loan['principal'],$loan['rate'],$loan['term_months'],$loan['type']);
-        echo json_encode($plan); exit;
+        $paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
+        $paymentsStmt->execute([$loan['id']]);
+        $payments = $paymentsStmt->fetchAll();
+        $alloc = compute_allocation_with_payments($loan, $payments);
+        $current_remaining = $alloc['remaining'];
+        $months_left = max(0, $loan['term_months'] - count($payments));
+        $projection = generate_projection_schedule($current_remaining, $loan['rate'], $months_left, $loan['type']);
+        $full_schedule = array_merge($alloc['allocations'], $projection);
+        echo json_encode($full_schedule); exit;
     }
     if ($method === 'POST' && count($parts)===3 && $parts[0]==='loans' && $parts[2]==='payments') {
         $id=(int)$parts[1];
