@@ -18,9 +18,10 @@
     <div class="collapse navbar-collapse" id="nav">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <?php if (!empty($_SESSION['user'])): ?>
-          <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/loans.php">Leningen</a></li>
+          <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/dashboard.php">📊 Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/loans.php">💰 Leningen</a></li>
           <?php if (in_array($_SESSION['user']['role'], ['admin','manager'])): ?>
-            <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/users.php">Gebruikers</a></li>
+            <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/users.php">👥 Gebruikers</a></li>
           <?php endif; ?>
         <?php endif; ?>
       </ul>
