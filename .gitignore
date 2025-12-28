@@ -1,4 +1,6 @@
 ./data/leningen.db
+data/leningen.db
 .env
 .env.backup
 .env.production
+composer.phar

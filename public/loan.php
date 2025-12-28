@@ -92,6 +92,22 @@ $projRemaining = array_column($projection, 'remaining');
 </div>
 
 <div class="card p-3 mb-4">
+  <h5>PDF Overzicht voor Belastingaangifte</h5>
+  <form method="get" action="generate_loan_pdf.php" target="_blank">
+    <input type="hidden" name="id" value="<?= $loan['id'] ?>">
+    <div class="mb-3">
+      <label class="form-label">Kies jaar</label>
+      <select class="form-select" name="year">
+        <?php for ($y = date('Y') - 5; $y <= date('Y') + 1; $y++): ?>
+          <option value="<?= $y ?>" <?= $y == date('Y') ? 'selected' : '' ?>><?= $y ?></option>
+        <?php endfor; ?>
+      </select>
+    </div>
+    <button class="btn btn-primary" type="submit">Download PDF</button>
+  </form>
+</div>
+
+<div class="card p-3 mb-4">
   <canvas id="chartRemaining" height="700"></canvas>
 </div>
 

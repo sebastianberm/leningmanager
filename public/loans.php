@@ -69,7 +69,7 @@ include __DIR__ . '/partials_header.php';
       <?php if ($errors): ?><div class="alert alert-danger"><?php echo implode('<br>', array_map('htmlspecialchars',$errors)); ?></div><?php endif; ?>
       <form method="post">
         <?php csrf_field(); ?>
-        <div class="mb-3"><label class="form-label">Naam</label><input class="form-control" name="name" placeholder="Erik & Miranda"></div>
+        <div class="mb-3"><label class="form-label">Naam</label><input class="form-control" name="name" placeholder="Naam van lening"></div>
         <div class="mb-3"><label class="form-label">Hoofdsom (€)</label><input class="form-control" name="principal" type="number" step="0.01"></div>
         <div class="mb-3"><label class="form-label">Rente (% per jaar)</label><input class="form-control" name="rate" type="number" step="0.0001"></div>
         <div class="mb-3"><label class="form-label">Startdatum</label><input class="form-control" name="start_date" type="date"></div>
