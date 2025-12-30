@@ -17,12 +17,13 @@ if ($is_staff && $_SERVER['REQUEST_METHOD']==='POST') {
     $start_date=trim($_POST['start_date']??'');
     $term=(int)($_POST['term_months']??0);
     $type=$_POST['type']??'annuity';
+  $lender_type = in_array($_POST['lender_type'] ?? '', ['company','private'], true) ? $_POST['lender_type'] : (defined('DEFAULT_LENDER_TYPE') ? DEFAULT_LENDER_TYPE : 'private');
     $borrower_id = $_POST['borrower_id'] ? (int)$_POST['borrower_id'] : null;
     if ($name=='' || $principal<=0 || $term<=0 || $start_date=='') $errors[]='Vul alle velden correct in.';
     if (!in_array($type, ['annuity','linear'], true)) $errors[]='Ongeldig type.';
     if (!$errors) {
-        $ins=$db->prepare("INSERT INTO loans(owner_id, borrower_id, name, principal, rate, start_date, term_months, type) VALUES(?,?,?,?,?,?,?,?)");
-        $ins->execute([$u['id'], $borrower_id, $name, $principal, $rate, $start_date, $term, $type]);
+    $ins=$db->prepare("INSERT INTO loans(owner_id, borrower_id, name, principal, rate, start_date, term_months, type, lender_type) VALUES(?,?,?,?,?,?,?,?,?)");
+    $ins->execute([$u['id'], $borrower_id, $name, $principal, $rate, $start_date, $term, $type, $lender_type]);
         header('Location: '.BASE_PATH .'/loans.php?ok=1'); exit;
     }
 }
@@ -73,6 +74,13 @@ include __DIR__ . '/partials_header.php';
         <div class="mb-3"><label class="form-label">Hoofdsom (€)</label><input class="form-control" name="principal" type="number" step="0.01"></div>
         <div class="mb-3"><label class="form-label">Rente (% per jaar)</label><input class="form-control" name="rate" type="number" step="0.0001"></div>
         <div class="mb-3"><label class="form-label">Startdatum</label><input class="form-control" name="start_date" type="date"></div>
+        <div class="mb-3">
+          <label class="form-label">Lender type</label>
+          <select class="form-select" name="lender_type">
+            <option value="private">Privé (naam vanuit config)</option>
+            <option value="company">Zakelijk (Sebsoft Holding BV)</option>
+          </select>
+        </div>
         <div class="mb-3"><label class="form-label">Looptijd (maanden)</label><input class="form-control" name="term_months" type="number"></div>
         <div class="mb-3">
           <label class="form-label">Type</label>

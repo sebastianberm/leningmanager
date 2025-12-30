@@ -64,7 +64,8 @@ class CustomPDF extends TCPDF {
     public function Header() {
         $this->SetFont('helvetica', 'B', 20);
         $this->SetTextColor(66, 153, 225);
-        $this->Cell(0, 15, 'Leningmanager', 0, false, 'L', 0, '', 0, false, 'M', 'M');
+        $appName = defined('APP_NAME') ? APP_NAME : 'Leningmanager';
+        $this->Cell(0, 15, $appName, 0, false, 'L', 0, '', 0, false, 'M', 'M');
         $this->SetFont('helvetica', '', 10);
         $this->SetTextColor(113, 128, 150);
         $this->Cell(0, 15, 'Belastingaangifte Overzicht', 0, false, 'R', 0, '', 0, false, 'M', 'M');
@@ -95,6 +96,101 @@ $pdf->SetFooterMargin(10);
 $pdf->SetAutoPageBreak(TRUE, 20);
 
 $pdf->AddPage();
+
+// --- Identificatie van partijen (bovenaan, vóór overzicht) ---
+// Leningverstrekker (per lening instelbaar via loans.lender_type -> 'company'|'private')
+$lender_type = $loan['lender_type'] ?? (defined('DEFAULT_LENDER_TYPE') ? DEFAULT_LENDER_TYPE : 'private');
+if ($lender_type === 'company') {
+    $lender_name = defined('LENDER_COMPANY_NAME') ? LENDER_COMPANY_NAME : 'Sebsoft Holding BV';
+    $lender_address = defined('LENDER_COMPANY_ADDRESS') ? LENDER_COMPANY_ADDRESS : '';
+} else {
+    $lender_name = defined('LENDER_PRIVATE_NAME') ? LENDER_PRIVATE_NAME : 'Sebastian R. Berm';
+    $lender_address = defined('LENDER_PRIVATE_ADDRESS') ? LENDER_PRIVATE_ADDRESS : '';
+}
+
+// Leningnemer(s)
+$borrower = null;
+if (!empty($loan['borrower_id'])) {
+    $bq = $db->prepare('SELECT * FROM users WHERE id=?');
+    $bq->execute([$loan['borrower_id']]);
+    $borrower = $bq->fetch();
+}
+$borrower_name = $borrower['name'] ?? ($loan['borrower_name'] ?? '');
+
+// Datum leningsovereenkomst en interne referentie
+$loan_date = !empty($loan['start_date']) ? date('d-m-Y', strtotime($loan['start_date'])) : '';
+$startDateForRef = !empty($loan['start_date']) ? date('Ymd', strtotime($loan['start_date'])) : date('Ymd', strtotime($loan['created_at'] ?? date('Y-m-d')));
+// Maak een leesbare interne referentie: LN-{id}-{startdate}-{6c_hash}
+$internal_ref = 'LN-' . $loan['id'] . '-' . $startDateForRef . '-' . substr(md5($loan['id'] . '|' . ($loan['name'] ?? '') ), 0, 6);
+
+// Restschulden per gevraagde data (gebaseerd op allocaties, geen herberekening van bedragen)
+$get_remaining_on = function($allocations, $targetDate, $defaultPrincipal) {
+    $targetTs = strtotime($targetDate);
+    $lastRemaining = null;
+    foreach ($allocations as $a) {
+        $aTs = strtotime($a['date']);
+        if ($aTs <= $targetTs) {
+            $lastRemaining = $a['remaining'];
+        }
+    }
+    if ($lastRemaining === null) {
+        // Als er geen betalingen/allocaties vóór target, gebruik originele hoofdsom
+        return $defaultPrincipal;
+    }
+    return $lastRemaining;
+};
+
+$rest_2025_01_01 = $get_remaining_on($alloc['allocations'], $year . '-01-01', $loan['principal']);
+$rest_2025_12_31 = $get_remaining_on($alloc['allocations'], $year . '-12-31', $loan['principal']);
+
+// Print identificatie sectie
+$pdf->SetFont('helvetica', 'B', 12);
+$pdf->SetTextColor(26, 32, 44);
+$pdf->Cell(0, 8, 'Identificatie van partijen', 0, 1);
+$pdf->Ln(2);
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(50, 6, 'Leningverstrekker:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->Cell(0, 6, $lender_name, 0, 1, 'L');
+if (!empty($lender_address)) {
+    $pdf->SetFont('helvetica', '', 9);
+    $pdf->SetTextColor(113, 128, 150);
+    $pdf->Cell(50, 5, '', 0, 0, 'R');
+    $pdf->Cell(0, 5, $lender_address, 0, 1, 'L');
+    $pdf->SetTextColor(26, 32, 44);
+}
+
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(50, 6, 'Leningnemer(s):', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->Cell(0, 6, $borrower_name ?: ($loan['name'] ?? ''), 0, 1, 'L');
+
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(50, 6, 'Relatie:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->Cell(0, 6, 'Particuliere lening', 0, 1, 'L');
+
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(50, 6, 'Leningreferentie:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->Cell(0, 6, 'ID ' . $internal_ref, 0, 1, 'L');
+
+$pdf->Ln(4);
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(60, 6, 'Datum leningsovereenkomst:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->Cell(0, 6, $loan_date, 0, 1, 'L');
+
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(60, 6, 'Interne referentie / Lening-ID:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->Cell(0, 6, (string)$internal_ref, 0, 1, 'L');
+
+$pdf->Ln(4);
+$pdf->SetFont('helvetica', '', 10);
+$pdf->MultiCell(0, 6, "Dit overzicht is gebaseerd op de leningsovereenkomst van " . ($loan_date ?: 'onbekend') . ".", 0, 'L');
+
+$pdf->Ln(6);
 
 // Samenvatting Box
 $pdf->SetFillColor(240, 248, 255);
@@ -168,7 +264,23 @@ $pdf->SetFont('helvetica', 'B', 14);
 $pdf->SetXY(15 + ($boxWidth + $spacing) * 2, $boxY + 12);
 $pdf->Cell($boxWidth, 8, money_fmt($total_principal), 0, 0, 'C');
 
-$pdf->Ln(25);
+// Jaarsaldi (restschulden op specifieke data)
+$pdf->Ln(3);
+$pdf->SetXY(15, $boxY + $boxHeight + 6);
+$pdf->SetFont('helvetica', 'B', 11);
+$pdf->SetTextColor(26, 32, 44);
+$pdf->Cell(0, 7, 'Jaarsaldi', 0, 1);
+$pdf->SetFont('helvetica', '', 10);
+$pdf->SetTextColor(26, 32, 44);
+$pdf->Cell(90, 6, 'Restschuld per 1 januari 2025:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->Cell(90, 6, money_fmt($rest_2025_01_01), 0, 1, 'L');
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(90, 6, 'Restschuld per 31 december 2025:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->Cell(90, 6, money_fmt($rest_2025_12_31), 0, 1, 'L');
+
+$pdf->Ln(15);
 
 // Maandelijks overzicht
 $pdf->SetFont('helvetica', 'B', 13);
@@ -409,25 +521,42 @@ if (count($yearly_alloc) > 0) {
     }
 }
 
-// Disclaimer
+// Fiscale duiding (neutraal, niet adviserend)
 $pdf->AddPage();
 $pdf->SetFont('helvetica', 'B', 13);
 $pdf->SetTextColor(26, 32, 44);
-$pdf->Cell(0, 10, 'Belangrijk', 0, 1);
+$pdf->Cell(0, 10, 'Fiscale duiding', 0, 1);
 $pdf->SetFont('helvetica', '', 10);
 $pdf->SetTextColor(113, 128, 150);
-$pdf->MultiCell(0, 6, 
-    "Dit document is gegenereerd door Leningmanager en dient als overzicht van de betalingen en aflossingen voor het jaar {$year}. " .
-    "De rentebetalingen kunnen mogelijk aftrekbaar zijn voor de belastingaangifte, afhankelijk van uw situatie. " .
-    "Raadpleeg altijd een belastingadviseur of accountant voor specifiek advies over uw belastingaangifte.\n\n" .
-    "Dit overzicht bevat:\n" .
-    "• Totaal betaalde bedragen per maand\n" .
-    "• Verdeling tussen rente en aflossing\n" .
-    "• Cumulatieve aflossing over het jaar\n" .
-    "• Gedetailleerde betalingslijst\n\n" .
+$renteTekst = isset($loan['rate']) ? ($loan['rate'] . '% per jaar') : '';
+$pdf->MultiCell(0, 6,
+    "Type lening: onderhandse (niet-notariële) lening.\n" .
+    "De rente is zakelijk vastgesteld: " . $renteTekst . ".\n\n" .
+    "Deze weergave bevat een overzicht van betaalde bedragen, rente- en aflossingscomponenten en restschulden. " .
+    "De informatie kan relevant zijn voor uw belastingaangifte. Dit document geeft echter geen belastingadvies; " .
+    "voor specifieke vragen met betrekking tot belastingpositie of aftrekbaarheid raden wij aan een belastingadviseur of accountant te raadplegen.\n\n" .
     "Gegenereerd op: " . date('d-m-Y H:i') . "\n" .
-    "Voor vragen: neem contact op met uw leningverstrekker.",
+    "Contact (leningverstrekker): " . $lender_name . ( !empty($lender_address) ? ' - ' . $lender_address : '' ),
     0, 'L');
+
+// Ondertekening - laatste pagina
+$pdf->AddPage();
+$pdf->SetFont('helvetica', 'B', 13);
+$pdf->SetTextColor(26, 32, 44);
+$pdf->Cell(0, 10, 'Voor akkoord', 0, 1);
+$pdf->Ln(6);
+$pdf->SetFont('helvetica', '', 11);
+$pdf->Cell(50, 7, 'Naam leningverstrekker:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 11);
+$pdf->Cell(0, 7, $lender_name, 0, 1, 'L');
+$pdf->Ln(8);
+$pdf->SetFont('helvetica', '', 11);
+$pdf->Cell(50, 7, 'Datum:', 0, 0, 'R');
+$pdf->SetFont('helvetica', 'B', 11);
+$pdf->Cell(0, 7, date('d-m-Y'), 0, 1, 'L');
+$pdf->Ln(12);
+$pdf->SetFont('helvetica', '', 10);
+$pdf->MultiCell(0, 6, "Handtekening (ruimte):\n\n\n..............................................................", 0, 'L');
 
 // Output
 $pdf->Output('lening_' . $loan['id'] . '_' . $year . '_belastingaangifte.pdf', 'I');

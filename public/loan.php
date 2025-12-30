@@ -51,6 +51,27 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
     }
 }
 
+// Update loan details (CRUD edit)
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_loan'])) {
+  if (!$can_edit) { http_response_code(403); exit; }
+  $name = trim($_POST['name'] ?? '');
+  $principal = (float)($_POST['principal'] ?? 0);
+  $rate = (float)($_POST['rate'] ?? 0);
+  $start_date = trim($_POST['start_date'] ?? '');
+  $term = (int)($_POST['term_months'] ?? 0);
+  $type = $_POST['type'] ?? 'annuity';
+  $borrower_id = $_POST['borrower_id'] ? (int)$_POST['borrower_id'] : null;
+  $lender_type = in_array($_POST['lender_type'] ?? '', ['company','private'], true) ? $_POST['lender_type'] : (defined('DEFAULT_LENDER_TYPE') ? DEFAULT_LENDER_TYPE : 'private');
+
+  if ($name=='' || $principal<=0 || $term<=0 || $start_date=='') $errors[]='Vul alle velden correct in.';
+  if (!in_array($type, ['annuity','linear'], true)) $errors[]='Ongeldig type.';
+  if (!$errors) {
+    $upd = $db->prepare("UPDATE loans SET borrower_id=?, name=?, principal=?, rate=?, start_date=?, term_months=?, type=?, lender_type=? WHERE id=?");
+    $upd->execute([$borrower_id, $name, $principal, $rate, $start_date, $term, $type, $lender_type, $loan['id']]);
+    header('Location: '.BASEDIR.'/loan.php?id='.$loan['id'].'&ok=1'); exit;
+  }
+}
+
 
 
 $paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
@@ -90,6 +111,47 @@ $projRemaining = array_column($projection, 'remaining');
        om binnen <?= $months_left ?> maanden klaar te zijn.</p>
   <?php endif; ?>
 </div>
+
+<?php if ($can_edit): ?>
+<div class="card p-3 mb-4">
+  <h5>Lening bewerken</h5>
+  <?php if (isset($_GET['ok'])): ?><div class="alert alert-success">Lening opgeslagen.</div><?php endif; ?>
+  <?php if ($errors): ?><div class="alert alert-danger"><?php echo implode('<br>', array_map('htmlspecialchars',$errors)); ?></div><?php endif; ?>
+  <form method="post">
+    <?php csrf_field(); ?>
+    <input type="hidden" name="update_loan" value="1">
+    <div class="mb-3"><label class="form-label">Naam</label><input class="form-control" name="name" value="<?= h($loan['name']) ?>"></div>
+    <div class="mb-3"><label class="form-label">Hoofdsom (€)</label><input class="form-control" name="principal" type="number" step="0.01" value="<?= h($loan['principal']) ?>"></div>
+    <div class="mb-3"><label class="form-label">Rente (% per jaar)</label><input class="form-control" name="rate" type="number" step="0.0001" value="<?= h($loan['rate']) ?>"></div>
+    <div class="mb-3"><label class="form-label">Startdatum</label><input class="form-control" name="start_date" type="date" value="<?= h($loan['start_date']) ?>"></div>
+    <div class="mb-3"><label class="form-label">Looptijd (maanden)</label><input class="form-control" name="term_months" type="number" value="<?= h($loan['term_months']) ?>"></div>
+    <div class="mb-3">
+      <label class="form-label">Type</label>
+      <select class="form-select" name="type">
+        <option value="annuity" <?= $loan['type'] === 'annuity' ? 'selected' : '' ?>>Annuïtair</option>
+        <option value="linear" <?= $loan['type'] === 'linear' ? 'selected' : '' ?>>Lineair</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Lender type</label>
+      <select class="form-select" name="lender_type">
+        <option value="private" <?= ($loan['lender_type'] ?? DEFAULT_LENDER_TYPE) === 'private' ? 'selected' : '' ?>>Privé (naam vanuit config)</option>
+        <option value="company" <?= ($loan['lender_type'] ?? DEFAULT_LENDER_TYPE) === 'company' ? 'selected' : '' ?>>Zakelijk (Sebsoft Holding BV)</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Borrower (optioneel)</label>
+      <select class="form-select" name="borrower_id">
+        <option value="">—</option>
+        <?php foreach($db->query("SELECT id,name FROM users WHERE role='borrower' ORDER BY name ASC")->fetchAll() as $b): ?>
+          <option value="<?=$b['id']?>" <?= ($loan['borrower_id']==$b['id']) ? 'selected' : '' ?>><?=h($b['name'])?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <button class="btn btn-primary">Opslaan</button>
+  </form>
+</div>
+<?php endif; ?>
 
 <div class="card p-3 mb-4">
   <h5>PDF Overzicht voor Belastingaangifte</h5>
