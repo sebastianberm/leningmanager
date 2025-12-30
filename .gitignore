@@ -1,6 +1,5 @@
 /.env
 /data/
-/vendor/
 .vscode/
 .idea/
 .DS_Store
