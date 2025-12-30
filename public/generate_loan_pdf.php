@@ -83,7 +83,7 @@ class CustomPDF extends TCPDF {
 $pdf = new CustomPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
 
 $pdf->SetCreator(PDF_CREATOR);
-$pdf->SetAuthor('Lening Manager');
+$pdf->SetAuthor(defined('APP_NAME') ? APP_NAME : 'Lening Manager');
 $pdf->SetTitle('Aflossingen ' . $loan['name'] . ' - ' . $year);
 $pdf->SetSubject('Belastingaangifte overzicht');
 

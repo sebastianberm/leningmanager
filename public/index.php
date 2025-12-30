@@ -6,7 +6,7 @@ include __DIR__ . '/partials_header.php';
 <div class="row">
   <div class="col-lg-8">
     <div class="card p-4 mb-4">
-      <h1 class="mb-3">Welkom bij Leningmanager</h1>
+      <h1 class="mb-3">Welkom bij <?php echo defined('APP_NAME') ? APP_NAME : 'Leningmanager'; ?></h1>
       <p class="text-muted">Beheer leningen, betalingen en aflossingsschema’s. Geef leningnemers een login zodat ze hun eigen lening kunnen inzien.</p>
       <?php if (!is_logged_in()): ?>
         <a href="<?= BASE_PATH ?>/login.php" class="btn btn-primary">Inloggen</a>

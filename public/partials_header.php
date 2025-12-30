@@ -4,14 +4,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Leningmanager</title>
+  <title><?php echo defined('APP_NAME') ? APP_NAME : 'Leningmanager'; ?></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="<?= BASE_PATH ?>/assets/styles.css" rel="stylesheet">
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark mb-4">
   <div class="container-fluid">
-    <a class="navbar-brand" href="<?= BASE_PATH ?>/">Leningmanager</a>
+    <a class="navbar-brand" href="<?= BASE_PATH ?>/"><?php echo defined('APP_NAME') ? APP_NAME : 'Leningmanager'; ?></a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
     </button>

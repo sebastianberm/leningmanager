@@ -63,6 +63,31 @@ De applicatie gebruikt omgevingsvariabelen voor configuratie:
 
 In Docker, deze zijn ingesteld in `docker-compose.yml`.
 
+Extra configuratie (app-naam en lender-gegevens)
+
+- `APP_NAME`: Naam van de applicatie die in de UI en in PDF-exports wordt getoond (standaard: `Leningmanager`).
+- `LENDER_COMPANY_NAME`: Naam van de zakelijke lender (standaard: `Sebsoft Holding BV`).
+- `LENDER_COMPANY_ADDRESS`: Adres van de zakelijke lender (optioneel).
+- `LENDER_PRIVATE_NAME`: Naam van de private lender (standaard: `Sebastian R. Berm`).
+- `LENDER_PRIVATE_ADDRESS`: Adres van de private lender (optioneel).
+- `DEFAULT_LENDER_TYPE`: Standaardwaarde voor lender type per lening (`private` of `company`, standaard: `private`).
+
+Voorbeeldenv in `docker-compose.yml`:
+
+```yaml
+services:
+   leningmanager:
+      environment:
+         - APP_NAME="Mijn Leningbeheer"
+         - LENDER_COMPANY_NAME="Sebsoft Holding BV"
+         - LENDER_COMPANY_ADDRESS="Straat 1, 1000 AA Stad"
+         - LENDER_PRIVATE_NAME="Sebastian R. Berm"
+         - LENDER_PRIVATE_ADDRESS="Persoonstraat 2, 2000 BB Stad"
+         - DEFAULT_LENDER_TYPE=private
+```
+
+Opmerking: `APP_NAME` wordt centraal gebruikt door de applicatie; door deze variabele te zetten wijzig je automatisch de weergave in de header, footer en gegenereerde PDF-bestanden.
+
 ## Gebruik
 
 ### Eerste Setup
