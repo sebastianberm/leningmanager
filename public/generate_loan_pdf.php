@@ -64,7 +64,7 @@ class CustomPDF extends TCPDF {
     public function Header() {
         $this->SetFont('helvetica', 'B', 20);
         $this->SetTextColor(66, 153, 225);
-        $appName = defined('APP_NAME') ? APP_NAME : 'Leningmanager';
+        $appName = defined('APP_NAME') ? APP_NAME : 'Fiscana';
         $this->Cell(0, 15, $appName, 0, false, 'L', 0, '', 0, false, 'M', 'M');
         $this->SetFont('helvetica', '', 10);
         $this->SetTextColor(113, 128, 150);
@@ -83,7 +83,7 @@ class CustomPDF extends TCPDF {
 $pdf = new CustomPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
 
 $pdf->SetCreator(PDF_CREATOR);
-$pdf->SetAuthor(defined('APP_NAME') ? APP_NAME : 'Lening Manager');
+$pdf->SetAuthor(defined('APP_NAME') ? APP_NAME : 'Fiscana');
 $pdf->SetTitle('Aflossingen ' . $loan['name'] . ' - ' . $year);
 $pdf->SetSubject('Belastingaangifte overzicht');
 

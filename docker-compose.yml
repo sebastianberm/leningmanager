@@ -1,7 +1,7 @@
 services:
-  leningmanager:
+  fiscana:
     build: .
-    container_name: leningmanager
+    container_name: fiscana
     ports:
       - "8080:80"
     environment:

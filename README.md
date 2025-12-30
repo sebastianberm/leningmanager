@@ -1,10 +1,10 @@
-# Leningmanager
+# Fiscana
 
 Een webapplicatie voor het beheren van leningen, betalingen en aflossingsschema's. Gebouwd met PHP, SQLite en Bootstrap.
 
 ## Beschrijving
 
-Leningmanager helpt bij het organiseren van leningen. Gebruikers kunnen leningen aanmaken, betalingen registreren en aflossingsschema's bekijken. Er is ondersteuning voor verschillende soorten leningen (annuity en linear) en een REST API voor integratie.
+Fiscana helpt bij het organiseren van leningen. Gebruikers kunnen leningen aanmaken, betalingen registreren en aflossingsschema's bekijken. Er is ondersteuning voor verschillende soorten leningen (annuity en linear) en een REST API voor integratie.
 
 ### Functies
 
@@ -65,7 +65,7 @@ In Docker, deze zijn ingesteld in `docker-compose.yml`.
 
 Extra configuratie (app-naam en lender-gegevens)
 
-- `APP_NAME`: Naam van de applicatie die in de UI en in PDF-exports wordt getoond (standaard: `Leningmanager`).
+- `APP_NAME`: Naam van de applicatie die in de UI en in PDF-exports wordt getoond (standaard: `Fiscana`).
 - `LENDER_COMPANY_NAME`: Naam van de zakelijke lender (standaard: `Sebsoft Holding BV`).
 - `LENDER_COMPANY_ADDRESS`: Adres van de zakelijke lender (optioneel).
 - `LENDER_PRIVATE_NAME`: Naam van de private lender (standaard: `Sebastian R. Berm`).
@@ -76,12 +76,12 @@ Voorbeeldenv in `docker-compose.yml`:
 
 ```yaml
 services:
-   leningmanager:
+   fiscana:
       environment:
-         - APP_NAME="Mijn Leningbeheer"
-         - LENDER_COMPANY_NAME="Sebsoft Holding BV"
+         - APP_NAME="Fiscana"
+         - LENDER_COMPANY_NAME="Holding BV"
          - LENDER_COMPANY_ADDRESS="Straat 1, 1000 AA Stad"
-         - LENDER_PRIVATE_NAME="Sebastian R. Berm"
+         - LENDER_PRIVATE_NAME="TestPersoon"
          - LENDER_PRIVATE_ADDRESS="Persoonstraat 2, 2000 BB Stad"
          - DEFAULT_LENDER_TYPE=private
 ```
