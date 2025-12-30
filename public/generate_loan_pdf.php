@@ -5,7 +5,7 @@ require __DIR__ . '/../includes/functions.php';
 require __DIR__ . '/../includes/config.php';
 require_login();
 
-$id = (int)($_GET['id'] ?? 0);
+$id   = (int)($_GET['id'] ?? 0);
 $year = (int)($_GET['year'] ?? date('Y'));
 
 $q = $db->prepare("SELECT * FROM loans WHERE id=?");
@@ -26,7 +26,7 @@ $payments = $paymentsStmt->fetchAll();
 
 $alloc = compute_allocation_with_payments($loan, $payments);
 
-// Filter allocations op jaar
+// Filter allocaties op jaar
 $yearly_alloc = array_filter($alloc['allocations'], function($a) use ($year) {
     return date('Y', strtotime($a['date'])) == $year;
 });
@@ -40,16 +40,16 @@ for ($m = 1; $m <= 12; $m++) {
 foreach ($yearly_alloc as $a) {
     $month = (int)date('m', strtotime($a['date']));
     $monthly_data[$month]['principal'] += (float)$a['principal'];
-    $monthly_data[$month]['interest'] += (float)$a['interest'];
-    $monthly_data[$month]['amount'] += (float)$a['amount'];
+    $monthly_data[$month]['interest']  += (float)$a['interest'];
+    $monthly_data[$month]['amount']    += (float)$a['amount'];
 }
 
-// Bereken totalen
-$total_amount = array_sum(array_column($yearly_alloc, 'amount'));
-$total_interest = array_sum(array_column($yearly_alloc, 'interest'));
+// Totalen
+$total_amount    = array_sum(array_column($yearly_alloc, 'amount'));
+$total_interest  = array_sum(array_column($yearly_alloc, 'interest'));
 $total_principal = array_sum(array_column($yearly_alloc, 'principal'));
 
-// Bereken cumulatieve aflossing
+// Cumulatieve aflossing
 $cumulative = 0;
 $cumulative_data = [];
 foreach ($monthly_data as $month => $data) {
@@ -57,7 +57,7 @@ foreach ($monthly_data as $month => $data) {
     $cumulative_data[$month] = $cumulative;
 }
 
-// PDF genereren met TCPDF
+// PDF
 require_once __DIR__ . '/../vendor/autoload.php';
 
 class CustomPDF extends TCPDF {
@@ -65,13 +65,13 @@ class CustomPDF extends TCPDF {
         $this->SetFont('helvetica', 'B', 20);
         $this->SetTextColor(66, 153, 225);
         $appName = defined('APP_NAME') ? APP_NAME : 'Fiscana';
-        $this->Cell(0, 15, $appName, 0, false, 'L', 0, '', 0, false, 'M', 'M');
+        $this->Cell(0, 15, $appName, 0, false, 'L');
         $this->SetFont('helvetica', '', 10);
         $this->SetTextColor(113, 128, 150);
-        $this->Cell(0, 15, 'Belastingaangifte Overzicht', 0, false, 'R', 0, '', 0, false, 'M', 'M');
+        $this->Cell(0, 15, 'Belastingaangifte Overzicht', 0, false, 'R');
         $this->Ln(10);
     }
-    
+
     public function Footer() {
         $this->SetY(-15);
         $this->SetFont('helvetica', 'I', 8);
@@ -81,34 +81,47 @@ class CustomPDF extends TCPDF {
 }
 
 $pdf = new CustomPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-
 $pdf->SetCreator(PDF_CREATOR);
 $pdf->SetAuthor(defined('APP_NAME') ? APP_NAME : 'Fiscana');
 $pdf->SetTitle('Aflossingen ' . $loan['name'] . ' - ' . $year);
 $pdf->SetSubject('Belastingaangifte overzicht');
 
-$pdf->setPrintHeader(true);
-$pdf->setPrintFooter(true);
+$pdf->setPrintHeader(false);
+$pdf->setPrintFooter(false);
 
 $pdf->SetMargins(15, 27, 15);
-$pdf->SetHeaderMargin(5);
-$pdf->SetFooterMargin(10);
-$pdf->SetAutoPageBreak(TRUE, 20);
+$pdf->SetAutoPageBreak(true, 20);
 
 $pdf->AddPage();
 
-// --- Identificatie van partijen (bovenaan, vóór overzicht) ---
-// Leningverstrekker (per lening instelbaar via loans.lender_type -> 'company'|'private')
-$lender_type = $loan['lender_type'] ?? (defined('DEFAULT_LENDER_TYPE') ? DEFAULT_LENDER_TYPE : 'private');
+/*
+ * ==========================
+ * VOORBLAD + IDENTIFICATIE
+ * ==========================
+ */
+
+$pdf->SetFont('helvetica', 'B', 26);
+$pdf->SetTextColor(66, 153, 225);
+$pdf->Ln(25);
+$pdf->Cell(0, 20, 'Jaaroverzicht ' . $year, 0, 1, 'C');
+
+$pdf->Ln(8);
+$pdf->SetFont('helvetica', '', 12);
+$pdf->SetTextColor(113, 128, 150);
+$pdf->Cell(0, 8, 'Overzicht t.b.v. belastingaangifte', 0, 1, 'C');
+
+$pdf->Ln(20);
+
+// Identificatie
+$lender_type = $loan['lender_type'] ?? 'private';
 if ($lender_type === 'company') {
-    $lender_name = defined('LENDER_COMPANY_NAME') ? LENDER_COMPANY_NAME : 'Sebsoft Holding BV';
+    $lender_name    = defined('LENDER_COMPANY_NAME') ? LENDER_COMPANY_NAME : 'Sebsoft Holding BV';
     $lender_address = defined('LENDER_COMPANY_ADDRESS') ? LENDER_COMPANY_ADDRESS : '';
 } else {
-    $lender_name = defined('LENDER_PRIVATE_NAME') ? LENDER_PRIVATE_NAME : 'Sebastian R. Berm';
+    $lender_name    = defined('LENDER_PRIVATE_NAME') ? LENDER_PRIVATE_NAME : 'Sebastian R. Berm';
     $lender_address = defined('LENDER_PRIVATE_ADDRESS') ? LENDER_PRIVATE_ADDRESS : '';
 }
 
-// Leningnemer(s)
 $borrower = null;
 if (!empty($loan['borrower_id'])) {
     $bq = $db->prepare('SELECT * FROM users WHERE id=?');
@@ -117,80 +130,56 @@ if (!empty($loan['borrower_id'])) {
 }
 $borrower_name = $borrower['name'] ?? ($loan['borrower_name'] ?? '');
 
-// Datum leningsovereenkomst en interne referentie
 $loan_date = !empty($loan['start_date']) ? date('d-m-Y', strtotime($loan['start_date'])) : '';
-$startDateForRef = !empty($loan['start_date']) ? date('Ymd', strtotime($loan['start_date'])) : date('Ymd', strtotime($loan['created_at'] ?? date('Y-m-d')));
-// Maak een leesbare interne referentie: LN-{id}-{startdate}-{6c_hash}
-$internal_ref = 'LN-' . $loan['id'] . '-' . $startDateForRef . '-' . substr(md5($loan['id'] . '|' . ($loan['name'] ?? '') ), 0, 6);
+$startDateForRef = !empty($loan['start_date'])
+    ? date('Ymd', strtotime($loan['start_date']))
+    : date('Ymd', strtotime($loan['created_at'] ?? date('Y-m-d')));
 
-// Restschulden per gevraagde data (gebaseerd op allocaties, geen herberekening van bedragen)
-$get_remaining_on = function($allocations, $targetDate, $defaultPrincipal) {
-    $targetTs = strtotime($targetDate);
-    $lastRemaining = null;
-    foreach ($allocations as $a) {
-        $aTs = strtotime($a['date']);
-        if ($aTs <= $targetTs) {
-            $lastRemaining = $a['remaining'];
-        }
-    }
-    if ($lastRemaining === null) {
-        // Als er geen betalingen/allocaties vóór target, gebruik originele hoofdsom
-        return $defaultPrincipal;
-    }
-    return $lastRemaining;
-};
+$internal_ref = 'LN-' . $loan['id'] . '-' . $startDateForRef . '-' . substr(md5($loan['id'] . '|' . ($loan['name'] ?? '')), 0, 6);
 
-$rest_2025_01_01 = $get_remaining_on($alloc['allocations'], $year . '-01-01', $loan['principal']);
-$rest_2025_12_31 = $get_remaining_on($alloc['allocations'], $year . '-12-31', $loan['principal']);
-
-// Print identificatie sectie
-$pdf->SetFont('helvetica', 'B', 12);
+$pdf->SetFont('helvetica', 'B', 15);
 $pdf->SetTextColor(26, 32, 44);
-$pdf->Cell(0, 8, 'Identificatie van partijen', 0, 1);
-$pdf->Ln(2);
+$pdf->Cell(0, 10, 'Identificatie van partijen', 0, 1);
+$pdf->Ln(3);
+
 $pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(50, 6, 'Leningverstrekker:', 0, 0, 'R');
+$pdf->Cell(55, 6, 'Leningverstrekker:', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, $lender_name, 0, 1, 'L');
-if (!empty($lender_address)) {
+$pdf->Cell(0, 6, $lender_name, 0, 1);
+
+if ($lender_address) {
     $pdf->SetFont('helvetica', '', 9);
     $pdf->SetTextColor(113, 128, 150);
-    $pdf->Cell(50, 5, '', 0, 0, 'R');
-    $pdf->Cell(0, 5, $lender_address, 0, 1, 'L');
+    $pdf->Cell(55, 5, '', 0, 0);
+    $pdf->Cell(0, 5, $lender_address, 0, 1);
     $pdf->SetTextColor(26, 32, 44);
 }
 
 $pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(50, 6, 'Leningnemer(s):', 0, 0, 'R');
+$pdf->Cell(55, 6, 'Leningnemer(s):', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, $borrower_name ?: ($loan['name'] ?? ''), 0, 1, 'L');
+$pdf->Cell(0, 6, $borrower_name ?: $loan['name'], 0, 1);
 
 $pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(50, 6, 'Relatie:', 0, 0, 'R');
+$pdf->Cell(55, 6, 'Leningreferentie:', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, 'Particuliere lening', 0, 1, 'L');
+$pdf->Cell(0, 6, $internal_ref, 0, 1);
 
 $pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(50, 6, 'Leningreferentie:', 0, 0, 'R');
+$pdf->Cell(55, 6, 'Datum overeenkomst:', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, 'ID ' . $internal_ref, 0, 1, 'L');
+$pdf->Cell(0, 6, $loan_date, 0, 1);
 
-$pdf->Ln(4);
-$pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(60, 6, 'Datum leningsovereenkomst:', 0, 0, 'R');
-$pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, $loan_date, 0, 1, 'L');
+/*
+ * ==========================
+ * PAGINA 2 – OVERZICHT
+ * ==========================
+ */
 
-$pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(60, 6, 'Interne referentie / Lening-ID:', 0, 0, 'R');
-$pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, (string)$internal_ref, 0, 1, 'L');
+$pdf->setPrintHeader(true);
+$pdf->setPrintFooter(true);
+$pdf->AddPage();
 
-$pdf->Ln(4);
-$pdf->SetFont('helvetica', '', 10);
-$pdf->MultiCell(0, 6, "Dit overzicht is gebaseerd op de leningsovereenkomst van " . ($loan_date ?: 'onbekend') . ".", 0, 'L');
-
-$pdf->Ln(6);
 
 // Samenvatting Box
 $pdf->SetFillColor(240, 248, 255);
@@ -274,11 +263,11 @@ $pdf->SetFont('helvetica', '', 10);
 $pdf->SetTextColor(26, 32, 44);
 $pdf->Cell(90, 6, 'Restschuld per 1 januari 2025:', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(90, 6, money_fmt($rest_2025_01_01), 0, 1, 'L');
+$pdf->Cell(90, 6, money_fmt($rest_01_01), 0, 1, 'L');
 $pdf->SetFont('helvetica', '', 10);
 $pdf->Cell(90, 6, 'Restschuld per 31 december 2025:', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(90, 6, money_fmt($rest_2025_12_31), 0, 1, 'L');
+$pdf->Cell(90, 6, money_fmt($rest_12_31), 0, 1, 'L');
 
 $pdf->Ln(15);
 
