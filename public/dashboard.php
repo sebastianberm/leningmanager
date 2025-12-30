@@ -8,6 +8,11 @@ require_login();
 $u = current_user();
 $is_staff = in_array($u['role'], ['admin','manager'], true);
 
+// migrations status
+require_once __DIR__ . '/../includes/migrations.php';
+$pending = pending_migrations($db);
+
+
 // Haal alle leningen op basis van rol
 if ($is_staff) {
     $loans = $db->query("SELECT l.*, b.name AS borrower_name FROM loans l LEFT JOIN users b ON b.id = l.borrower_id ORDER BY l.created_at DESC")->fetchAll();
@@ -95,6 +100,27 @@ include __DIR__ . '/partials_header.php';
 <div class="row mb-4">
     <div class="col-12">
         <h1 class="mb-4">📊 Dashboard</h1>
+        <?php if ($is_staff && count($pending) > 0): ?>
+            <div class="alert alert-warning">
+                Er zijn <strong><?= count($pending) ?></strong> migratie(s) die uitgevoerd moeten worden: <em><?= h(implode(', ', $pending)) ?></em>.
+                <form method="post" action="<?= BASE_PATH ?>/run_migrations.php" style="display:inline-block;margin-left:12px;">
+                    <?php csrf_field(); ?>
+                    <button class="btn btn-sm btn-primary">Voer migraties uit</button>
+                </form>
+            </div>
+        <?php elseif ($is_staff):
+            // show previous results if any
+            if (session_status() === PHP_SESSION_NONE) session_start();
+            if (!empty($_SESSION['migrations_results'])): ?>
+                <div class="alert alert-info">
+                    Migratie resultaten:
+                    <ul>
+                    <?php foreach($_SESSION['migrations_results'] as $k => $v): ?>
+                        <li><?= h($k) ?>: <?= h($v) ?></li>
+                    <?php endforeach; unset($_SESSION['migrations_results']); ?>
+                    </ul>
+                </div>
+        <?php endif; endif; ?>
     </div>
 </div>
 

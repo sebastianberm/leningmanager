@@ -1,6 +1,15 @@
 <?php
 require __DIR__ . '/../includes/db.php';
 require __DIR__ . '/../includes/auth.php';
+// Redirect logged-in users to a relevant page
+if (is_logged_in()) {
+  $u = current_user();
+  if (in_array($u['role'], ['admin','manager'], true)) {
+    header('Location: ' . BASE_PATH . '/dashboard.php'); exit;
+  } else {
+    header('Location: ' . BASE_PATH . '/loans.php'); exit;
+  }
+}
 include __DIR__ . '/partials_header.php';
 ?>
 <div class="row">

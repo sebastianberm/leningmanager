@@ -53,16 +53,12 @@ SQL;
     $db->exec($schema);
 }
 
-// Ensure optional lender_type column exists in loans table for per-loan lender selection
+// Migrations: load helper and register pending migrations if any
+require_once __DIR__ . '/migrations.php';
+// Ensure migrations table exists
 try {
-    $cols = $db->query("PRAGMA table_info(loans);")->fetchAll(PDO::FETCH_ASSOC);
-    $hasLenderType = false;
-    foreach ($cols as $c) {
-        if ($c['name'] === 'lender_type') { $hasLenderType = true; break; }
-    }
-    if (!$hasLenderType) {
-        $db->exec("ALTER TABLE loans ADD COLUMN lender_type TEXT DEFAULT '" . (defined('DEFAULT_LENDER_TYPE') ? DEFAULT_LENDER_TYPE : 'private') . "';");
-    }
+    ensure_migrations_table($db);
 } catch (Exception $e) {
-    // Niet kritisch, alleen schema-migratie helper
+    // ignore
 }
+
