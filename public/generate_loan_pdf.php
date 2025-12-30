@@ -603,6 +603,7 @@ $pdf->MultiCell(0, 6,
     0, 'L');
 
 // Ondertekening - laatste pagina
+/*
 $pdf->AddPage();
 $pdf->SetFont('helvetica', 'B', 13);
 $pdf->SetTextColor(26, 32, 44);
@@ -620,6 +621,6 @@ $pdf->Cell(0, 7, date('d-m-Y'), 0, 1, 'L');
 $pdf->Ln(12);
 $pdf->SetFont('helvetica', '', 10);
 $pdf->MultiCell(0, 6, "Handtekening (ruimte):\n\n\n..............................................................", 0, 'L');
-
+*/
 // Output
 $pdf->Output('lening_' . $loan['id'] . '_' . $year . '_belastingaangifte.pdf', 'I');
