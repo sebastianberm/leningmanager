@@ -113,7 +113,8 @@ $pdf->Ln(3);
 
 $pdf->Cell(90, 7, 'Lening:', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 11);
-$pdf->Cell(90, 7, h($loan['name']), 0, 1, 'L');
+$loanName = html_entity_decode($loan['name'], ENT_QUOTES, 'UTF-8');
+$pdf->Cell(90, 7, $loanName, 0, 1, 'L');
 
 $pdf->SetFont('helvetica', '', 11);
 $pdf->Cell(90, 7, 'Hoofdsom:', 0, 0, 'R');
@@ -137,32 +138,34 @@ $boxWidth = 58;
 $boxHeight = 30;
 $spacing = 3;
 
+$boxY = $pdf->GetY();
+
 $pdf->SetFillColor(72, 187, 120);
 $pdf->SetTextColor(255, 255, 255);
-$pdf->RoundedRect(15, $pdf->GetY(), $boxWidth, $boxHeight, 2, '1111', 'F');
-$pdf->SetXY(15, $pdf->GetY() + 5);
+$pdf->RoundedRect(15, $boxY, $boxWidth, $boxHeight, 2, '1111', 'F');
+$pdf->SetXY(15, $boxY + 5);
 $pdf->SetFont('helvetica', '', 9);
 $pdf->Cell($boxWidth, 5, 'Totaal Betaald', 0, 1, 'C');
 $pdf->SetFont('helvetica', 'B', 14);
-$pdf->SetX(15);
+$pdf->SetXY(15, $boxY + 12);
 $pdf->Cell($boxWidth, 8, money_fmt($total_amount), 0, 0, 'C');
 
 $pdf->SetFillColor(237, 137, 54);
-$pdf->RoundedRect(15 + $boxWidth + $spacing, $pdf->GetY() - 13, $boxWidth, $boxHeight, 2, '1111', 'F');
-$pdf->SetXY(15 + $boxWidth + $spacing, $pdf->GetY() - 8);
+$pdf->RoundedRect(15 + $boxWidth + $spacing, $boxY, $boxWidth, $boxHeight, 2, '1111', 'F');
+$pdf->SetXY(15 + $boxWidth + $spacing, $boxY + 5);
 $pdf->SetFont('helvetica', '', 9);
 $pdf->Cell($boxWidth, 5, 'Rente Betaald', 0, 1, 'C');
 $pdf->SetFont('helvetica', 'B', 14);
-$pdf->SetX(15 + $boxWidth + $spacing);
+$pdf->SetXY(15 + $boxWidth + $spacing, $boxY + 12);
 $pdf->Cell($boxWidth, 8, money_fmt($total_interest), 0, 0, 'C');
 
 $pdf->SetFillColor(66, 153, 225);
-$pdf->RoundedRect(15 + ($boxWidth + $spacing) * 2, $pdf->GetY() - 13, $boxWidth, $boxHeight, 2, '1111', 'F');
-$pdf->SetXY(15 + ($boxWidth + $spacing) * 2, $pdf->GetY() - 8);
+$pdf->RoundedRect(15 + ($boxWidth + $spacing) * 2, $boxY, $boxWidth, $boxHeight, 2, '1111', 'F');
+$pdf->SetXY(15 + ($boxWidth + $spacing) * 2, $boxY + 5);
 $pdf->SetFont('helvetica', '', 9);
 $pdf->Cell($boxWidth, 5, 'Aflossing', 0, 1, 'C');
 $pdf->SetFont('helvetica', 'B', 14);
-$pdf->SetX(15 + ($boxWidth + $spacing) * 2);
+$pdf->SetXY(15 + ($boxWidth + $spacing) * 2, $boxY + 12);
 $pdf->Cell($boxWidth, 8, money_fmt($total_principal), 0, 0, 'C');
 
 $pdf->Ln(25);
@@ -179,7 +182,7 @@ $pdf->Cell(35, 8, 'Maand', 1, 0, 'C', true);
 $pdf->Cell(40, 8, 'Totaal Betaald', 1, 0, 'C', true);
 $pdf->Cell(40, 8, 'Rente', 1, 0, 'C', true);
 $pdf->Cell(40, 8, 'Aflossing', 1, 0, 'C', true);
-$pdf->Cell(25, 8, '%', 1, 1, 'C', true);
+$pdf->Cell(25, 8, '% (rente/bedrag)', 1, 1, 'C', true);
 
 $pdf->SetFont('helvetica', '', 9);
 $pdf->SetTextColor(26, 32, 44);
@@ -233,21 +236,32 @@ $pdf->SetDrawColor(113, 128, 150);
 $pdf->Line($startX, $startY, $startX, $startY + $graphHeight);
 $pdf->Line($startX, $startY + $graphHeight, $startX + $graphWidth, $startY + $graphHeight);
 
+// Y-as label
+$pdf->SetFont('helvetica', '', 9);
+$pdf->SetTextColor(113, 128, 150);
+$pdf->SetXY($startX - 20, $startY - 6);
+$pdf->Cell(40, 5, 'Bedrag (€)', 0, 0, 'L');
+
 // Bars
 $x = $startX + 5;
 foreach ($monthly_data as $m => $data) {
     if ($data['amount'] > 0) {
+        
         $barHeight = $maxValue > 0 ? ($data['amount'] / $maxValue) * $graphHeight * 0.9 : 0;
-        
-        // Aflossing (groen)
+
+        // Bereken segmenthoogtes
         $principalHeight = $data['amount'] > 0 ? ($data['principal'] / $data['amount']) * $barHeight : 0;
-        $pdf->SetFillColor(72, 187, 120);
-        $pdf->Rect($x, $startY + $graphHeight - $barHeight, $barWidth, $principalHeight, 'F');
-        
-        // Rente (oranje)
         $interestHeight = $barHeight - $principalHeight;
+
+        $baseline = $startY + $graphHeight;
+
+        // Rente (oranje) bovenaan van de bar (tekenen eerst het bovenste segment)
         $pdf->SetFillColor(237, 137, 54);
-        $pdf->Rect($x, $startY + $graphHeight - $barHeight, $barWidth, $interestHeight, 'F');
+        $pdf->Rect($x, $baseline - $barHeight, $barWidth, $interestHeight, 'F');
+
+        // Aflossing (groen) onderaan
+        $pdf->SetFillColor(72, 187, 120);
+        $pdf->Rect($x, $baseline - $principalHeight, $barWidth, $principalHeight, 'F');
         
         // Maand label
         $pdf->SetFont('helvetica', '', 7);
@@ -326,7 +340,42 @@ for ($j = 0; $j < count($pointsX) - 1; $j++) {
     $pdf->Line($pointsX[$j], $pointsY[$j], $pointsX[$j + 1], $pointsY[$j + 1]);
 }
 
-$pdf->Ln($lineHeight + 15);
+$pdf->Ln(2);
+
+// Y-as ticks and labels
+$pdf->SetFont('helvetica', '', 8);
+$ticks = 5;
+for ($t = 0; $t <= $ticks; $t++) {
+    $val = ($t / $ticks) * $maxCumulative;
+    $yTick = $lineStartY + $lineHeight - ($t / $ticks) * $lineHeight * 0.9;
+    $pdf->SetTextColor(113, 128, 150);
+    $pdf->SetXY($lineStartX - 22, $yTick - 3);
+    $pdf->Cell(20, 4, money_fmt($val), 0, 0, 'R');
+    $pdf->SetDrawColor(200, 210, 220);
+    $pdf->Line($lineStartX - 2, $yTick, $lineStartX + $lineWidth, $yTick);
+}
+
+// Legend for cumulative line
+$pdf->SetXY($lineStartX + $lineWidth - 70, $lineStartY - 6);
+$pdf->SetFillColor(66, 153, 225);
+$pdf->Rect($pdf->GetX(), $pdf->GetY(), 6, 6, 'F');
+$pdf->SetXY($pdf->GetX() + 8, $pdf->GetY());
+$pdf->SetTextColor(26, 32, 44);
+$pdf->Cell(60, 6, 'Cumulatieve aflossing', 0, 1);
+
+// X labels under the axis (maanden)
+$pdf->SetFont('helvetica', '', 7);
+$pdf->SetTextColor(113, 128, 150);
+// bepaal actieve maand keys in volgorde
+$activeMonthKeys = array_keys($activeMonths);
+for ($k = 0; $k < count($pointsX); $k++) {
+    $monthIndex = $activeMonthKeys[$k];
+    $label = substr($months_nl[$monthIndex], 0, 3);
+    $pdf->SetXY($pointsX[$k] - 8, $lineStartY + $lineHeight + 2);
+    $pdf->Cell(16, 4, $label, 0, 0, 'C');
+}
+
+$pdf->Ln($lineHeight - 40 + 15);
 
 // Detail betalingen tabel
 if (count($yearly_alloc) > 0) {
