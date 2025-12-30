@@ -169,7 +169,7 @@ $rest_12_31 = $get_remaining_on(
 // Als lening na 1 januari van dit jaar is gestart
 if (!empty($loan['start_date']) && strtotime($loan['start_date']) > strtotime($year . '-01-01')) {
     $rest_01_01 = 0.0;
-}`
+}
 
 $pdf->SetFont('helvetica', 'B', 15);
 $pdf->SetTextColor(26, 32, 44);
