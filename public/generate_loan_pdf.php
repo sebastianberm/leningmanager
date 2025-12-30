@@ -512,6 +512,42 @@ for ($k = 0; $k < count($pointsX); $k++) {
 
 $pdf->Ln($lineHeight - 40 + 15);
 
+$loan_start_year = !empty($loan['start_date'])
+    ? (int)date('Y', strtotime($loan['start_date']))
+    : null;
+
+$show_start_row = ($loan_start_year === (int)$year);
+if ($show_start_row) {
+    $pdf->SetFillColor(240, 244, 248);
+    $pdf->SetFont('helvetica', 'I', 8);
+
+    $pdf->Cell(
+        30,
+        6,
+        date('d-m-Y', strtotime($loan['start_date'])),
+        1,
+        0,
+        'C',
+        true
+    );
+    $pdf->Cell(35, 6, '—', 1, 0, 'C', true); // Bedrag
+    $pdf->Cell(35, 6, '—', 1, 0, 'C', true); // Rente
+    $pdf->Cell(35, 6, '—', 1, 0, 'C', true); // Aflossing
+    $pdf->Cell(
+        45,
+        6,
+        money_fmt($loan['principal']),
+        1,
+        1,
+        'R',
+        true
+    );
+
+    // Reset font
+    $pdf->SetFont('helvetica', '', 8);
+}
+
+
 // Detail betalingen tabel
 if (count($yearly_alloc) > 0) {
     $pdf->AddPage();
