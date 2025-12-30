@@ -137,6 +137,40 @@ $startDateForRef = !empty($loan['start_date'])
 
 $internal_ref = 'LN-' . $loan['id'] . '-' . $startDateForRef . '-' . substr(md5($loan['id'] . '|' . ($loan['name'] ?? '')), 0, 6);
 
+// ==========================
+// Restschulden berekenen
+// ==========================
+$get_remaining_on = function(array $allocations, string $targetDate, float $defaultPrincipal): float {
+    $targetTs = strtotime($targetDate);
+    $lastRemaining = null;
+
+    foreach ($allocations as $a) {
+        $aTs = strtotime($a['date']);
+        if ($aTs <= $targetTs) {
+            $lastRemaining = (float)$a['remaining'];
+        }
+    }
+
+    return $lastRemaining ?? $defaultPrincipal;
+};
+
+$rest_01_01 = $get_remaining_on(
+    $alloc['allocations'],
+    $year . '-01-01',
+    (float)$loan['principal']
+);
+
+$rest_12_31 = $get_remaining_on(
+    $alloc['allocations'],
+    $year . '-12-31',
+    (float)$loan['principal']
+);
+
+// Als lening na 1 januari van dit jaar is gestart
+if (!empty($loan['start_date']) && strtotime($loan['start_date']) > strtotime($year . '-01-01')) {
+    $rest_01_01 = 0.0;
+}`
+
 $pdf->SetFont('helvetica', 'B', 15);
 $pdf->SetTextColor(26, 32, 44);
 $pdf->Cell(0, 10, 'Identificatie van partijen', 0, 1);
@@ -261,11 +295,11 @@ $pdf->SetTextColor(26, 32, 44);
 $pdf->Cell(0, 7, 'Jaarsaldi', 0, 1);
 $pdf->SetFont('helvetica', '', 10);
 $pdf->SetTextColor(26, 32, 44);
-$pdf->Cell(90, 6, 'Restschuld per 1 januari 2025:', 0, 0, 'R');
+$pdf->Cell(90, 6, 'Restschuld per 1 januari ' . $year . ':', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->Cell(90, 6, money_fmt($rest_01_01), 0, 1, 'L');
 $pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(90, 6, 'Restschuld per 31 december 2025:', 0, 0, 'R');
+$pdf->Cell(90, 6, 'Restschuld per 31 december ' . $year . ':', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->Cell(90, 6, money_fmt($rest_12_31), 0, 1, 'L');
 
