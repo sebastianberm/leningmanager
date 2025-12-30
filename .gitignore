@@ -1,3 +1,10 @@
+/.env
+/data/
+/vendor/
+.vscode/
+.idea/
+.DS_Store
+/.env.local
 ./data/leningen.db
 data/leningen.db
 .env
