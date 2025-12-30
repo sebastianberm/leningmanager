@@ -192,7 +192,7 @@ if ($lender_address) {
 $pdf->SetFont('helvetica', '', 10);
 $pdf->Cell(55, 6, 'Leningnemer(s):', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, $borrower_name ?: $loan['name'], 0, 1);
+$pdf->Cell(0, 6, !empty($borrower_name) ? $borrower_name : $loan['name'], 0, 1);
 
 $pdf->SetFont('helvetica', '', 10);
 $pdf->Cell(55, 6, 'Leningreferentie:', 0, 0, 'R');
