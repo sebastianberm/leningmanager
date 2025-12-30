@@ -1,4 +1,10 @@
 <?php
+// Load .env file if present (allows configuring the app without docker-compose)
+if (file_exists(__DIR__ . '/../.env')) {
+	require_once __DIR__ . '/dotenv.php';
+	@load_dotenv(__DIR__ . '/../.env');
+}
+
 @define('API_TOKEN', getenv('API_TOKEN') ?: 'changeme_dev_token');
 @define('WEBHOOK_URL', getenv('WEBHOOK_URL') ?: '');
 // Dynamische base URL, zodat alles ook in een submap kan draaien.

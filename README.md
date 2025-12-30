@@ -94,9 +94,9 @@ Voorbeeld `.env`:
 APP_NAME=Fiscana
 API_TOKEN=changeme_dev_token
 WEBHOOK_URL=
-LENDER_COMPANY_NAME=Holding BV
+LENDER_COMPANY_NAME=Sebsoft Holding BV
 LENDER_COMPANY_ADDRESS="Straat 1, 1000 AA Stad"
-LENDER_PRIVATE_NAME="Testpersoon"
+LENDER_PRIVATE_NAME="Sebastian R. Berm"
 LENDER_PRIVATE_ADDRESS="Persoonstraat 2, 2000 BB Stad"
 DEFAULT_LENDER_TYPE=private
 ```
