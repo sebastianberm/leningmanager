@@ -86,6 +86,23 @@ services:
          - DEFAULT_LENDER_TYPE=private
 ```
 
+Voor lokale ontwikkeling zonder Docker kun je variabelen ook in een `.env`-bestand plaatsen in de projectroot. Het project bevat een eenvoudige loader die dit bestand leest bij start.
+
+Voorbeeld `.env`:
+
+```
+APP_NAME=Fiscana
+API_TOKEN=changeme_dev_token
+WEBHOOK_URL=
+LENDER_COMPANY_NAME=Holding BV
+LENDER_COMPANY_ADDRESS="Straat 1, 1000 AA Stad"
+LENDER_PRIVATE_NAME="Testpersoon"
+LENDER_PRIVATE_ADDRESS="Persoonstraat 2, 2000 BB Stad"
+DEFAULT_LENDER_TYPE=private
+```
+
+Plaats `.env` in de repository root. De loader zet deze waarden in de omgeving zodat `includes/config.php` en de rest van de applicatie ze kan gebruiken.
+
 Opmerking: `APP_NAME` wordt centraal gebruikt door de applicatie; door deze variabele te zetten wijzig je automatisch de weergave in de header, footer en gegenereerde PDF-bestanden.
 
 ## Gebruik
