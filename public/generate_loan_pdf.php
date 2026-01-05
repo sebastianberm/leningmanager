@@ -521,7 +521,7 @@ $show_start_row = ($loan_start_year === (int)$year);
 
 
 // Detail betalingen tabel
-if (count($yearly_alloc) > 0) {
+if (count($yearly_alloc) > 0 || $show_start_row) {
     $pdf->AddPage();
     $pdf->SetFont('helvetica', 'B', 13);
     $pdf->SetTextColor(26, 32, 44);
