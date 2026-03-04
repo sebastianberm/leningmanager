@@ -462,3 +462,33 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* MODAL FIX - Prevent scrollbar shift */
+body {
+  scrollbar-gutter: stable;
+}
+
+.modal {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.modal-backdrop {
+  z-index: 1040 !important;
+}
+
+.modal {
+  z-index: 1050 !important;
+}
+
+.modal-dialog {
+  z-index: 1060 !important;
+}
+
+/* Disable table row transform when modal is open */
+.modal-open .table-hover tbody tr {
+  transform: none !important;
+}
+
+.modal-open .table-hover tbody tr:hover {
+  transform: none !important;
+}
