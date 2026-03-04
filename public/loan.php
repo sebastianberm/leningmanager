@@ -252,11 +252,11 @@ $projRemaining = array_column($projection, 'remaining');
                 <h5 class="modal-title">Betaling bewerken</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
               </div>
-              <form method="post">
+              <form method="post" id="editForm<?=$a['id']?>">
                 <?php csrf_field(); ?>
                 <div class="modal-body">
                   <input type="hidden" name="payment_id" value="<?=$a['id']?>">
-                  <input type="hidden" name="update_payment" value="1">
+                  <input type="hidden" name="update_payment" value="1" id="updateFlag<?=$a['id']?>">
                   <div class="mb-3">
                     <label class="form-label">Datum</label>
                     <input type="date" class="form-control" name="date" value="<?=h($a['date'])?>" required>
@@ -272,16 +272,10 @@ $projRemaining = array_column($projection, 'remaining');
                 </div>
                 <div class="modal-footer">
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                  <button type="button" class="btn btn-danger" onclick="if (confirm('Weet je het zeker?')) { document.getElementById('updateFlag<?=$a['id']?>').name = 'delete_payment'; document.getElementById('editForm<?=$a['id']?>').submit(); }">Verwijderen</button>
                   <button type="submit" class="btn btn-primary">Opslaan</button>
                 </div>
               </form>
-              <div style="padding: 0 1rem 1rem;">
-                <form method="post" style="display:inline;">
-                  <?php csrf_field(); ?>
-                  <input type="hidden" name="delete_payment" value="<?=$a['id']?>">
-                  <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Weet je het zeker?')">Verwijderen</button>
-                </form>
-              </div>
             </div>
           </div>
         </div>
