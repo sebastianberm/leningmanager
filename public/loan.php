@@ -298,6 +298,10 @@ const scheduled = <?= json_encode($scheduledRemaining) ?>;
 const actual = <?= json_encode($actualRemaining) ?>;
 const projection = <?= json_encode($projRemaining) ?>;
 
+const darkColor = getComputedStyle(document.documentElement)
+  .getPropertyValue('--fucking-dark')
+  .trim();
+
 new Chart(document.getElementById('chartRemaining').getContext('2d'), {
   type: 'line',
   data: {
@@ -310,14 +314,23 @@ new Chart(document.getElementById('chartRemaining').getContext('2d'), {
   },
   options: {
     responsive: true,
-    plugins: {legend:{position:'bottom'}},
+    plugins: {
+      legend: {
+        position:'bottom',
+        labels: {
+          color: darkColor
+        }
+      }
+    },
     scales: {
-    x: {grid:{color:'#374151'}, ticks:{color:'#e5e7eb'} },
-      y: {grid:{color:'#374151'}, ticks:{color:'#e5e7eb'}}
+      x: { grid:{color:'#374151'}, ticks:{color: darkColor} },
+      y: { grid:{color:'#374151'}, ticks:{color: darkColor} }
     }
   }
 });
 </script>
+
+
 
 <?php include __DIR__ . '/partials_footer.php'; ?>
 
