@@ -244,46 +244,49 @@ $projRemaining = array_column($projection, 'remaining');
           </td>
           <?php endif; ?>
         </tr>
-        <?php if ($can_edit && $u['role']!=='borrower'): ?>
-        <div class="modal fade" id="editPaymentModal<?=$a['id']?>" tabindex="-1">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title">Betaling bewerken</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-              </div>
-              <form method="post" id="editForm<?=$a['id']?>">
-                <?php csrf_field(); ?>
-                <div class="modal-body">
-                  <input type="hidden" name="payment_id" value="<?=$a['id']?>">
-                  <input type="hidden" name="update_payment" value="1" id="updateFlag<?=$a['id']?>">
-                  <div class="mb-3">
-                    <label class="form-label">Datum</label>
-                    <input type="date" class="form-control" name="date" value="<?=h($a['date'])?>" required>
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Bedrag (€)</label>
-                    <input type="number" step="0.01" class="form-control" name="amount" value="<?=h($a['amount'])?>" required>
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Notitie</label>
-                    <input type="text" class="form-control" name="note" value="<?=isset($a['note']) ? h($a['note']) : ''?>">
-                  </div>
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
-                  <button type="button" class="btn btn-danger" onclick="if (confirm('Weet je het zeker?')) { document.getElementById('updateFlag<?=$a['id']?>').name = 'delete_payment'; document.getElementById('editForm<?=$a['id']?>').submit(); }">Verwijderen</button>
-                  <button type="submit" class="btn btn-primary">Opslaan</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-        <?php endif; ?>
       <?php endforeach; ?>
     </tbody>
   </table>
 </div>
+
+<?php if ($can_edit && $u['role']!=='borrower'): ?>
+<?php foreach($alloc['allocations'] as $a): ?>
+<div class="modal fade" id="editPaymentModal<?=$a['id']?>" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Betaling bewerken</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="editForm<?=$a['id']?>">
+        <?php csrf_field(); ?>
+        <div class="modal-body">
+          <input type="hidden" name="payment_id" value="<?=$a['id']?>">
+          <input type="hidden" name="update_payment" value="1" id="updateFlag<?=$a['id']?>">
+          <div class="mb-3">
+            <label class="form-label">Datum</label>
+            <input type="date" class="form-control" name="date" value="<?=h($a['date'])?>" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Bedrag (€)</label>
+            <input type="number" step="0.01" class="form-control" name="amount" value="<?=h($a['amount'])?>" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notitie</label>
+            <input type="text" class="form-control" name="note" value="<?=isset($a['note']) ? h($a['note']) : ''?>">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+          <button type="button" class="btn btn-danger" onclick="if (confirm('Weet je het zeker?')) { document.getElementById('updateFlag<?=$a['id']?>').name = 'delete_payment'; document.getElementById('editForm<?=$a['id']?>').submit(); }">Verwijderen</button>
+          <button type="submit" class="btn btn-primary">Opslaan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<?php endforeach; ?>
+<?php endif; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
