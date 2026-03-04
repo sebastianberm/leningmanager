@@ -20,6 +20,30 @@ $can_edit = $is_staff || $is_owner;
 $is_borrower_view = ($u['id'] === (int)$loan['borrower_id'] && $u['role']==='borrower');
 
 $errors=[];
+// Delete payment
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['delete_payment'])) {
+    if (!$can_edit || $u['role']==='borrower') { http_response_code(403); exit; }
+    $payment_id = (int)$_POST['delete_payment'];
+    $del = $db->prepare("DELETE FROM payments WHERE id=? AND loan_id=?");
+    $del->execute([$payment_id, $loan['id']]);
+    header('Location: '.BASEDIR.'/loan.php?id='.$loan['id'].'&pDelete=1'); exit;
+}
+
+// Update payment
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_payment'])) {
+    if (!$can_edit || $u['role']==='borrower') { http_response_code(403); exit; }
+    $payment_id = (int)$_POST['payment_id'];
+    $date = $_POST['date'] ?? '';
+    $amount = (float)($_POST['amount'] ?? 0);
+    $note = trim($_POST['note'] ?? '');
+    if ($date=='' || $amount<=0) $errors[]='Datum en bedrag zijn verplicht.';
+    if (!$errors) {
+        $upd = $db->prepare("UPDATE payments SET date=?, amount=?, note=? WHERE id=? AND loan_id=?");
+        $upd->execute([$date, $amount, $note, $payment_id, $loan['id']]);
+        header('Location: '.BASEDIR.'/loan.php?id='.$loan['id'].'&pEdit=1'); exit;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
     if (!$can_edit || $u['role']==='borrower') { http_response_code(403); exit; }
     $date = $_POST['date'] ?? '';
@@ -30,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
         $ins=$db->prepare("INSERT INTO payments(loan_id,date,amount,note) VALUES(?,?,?,?)");
         $ins->execute([$loan['id'],$date,$amount,$note]);
 
-        $paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
+        $paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date DESC, id DESC");
         $paymentsStmt->execute([$loan['id']]);
         $payments = $paymentsStmt->fetchAll();
         $alloc = compute_allocation_with_payments($loan, $payments);
@@ -74,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_loan'])) {
 
 
 
-$paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
+$paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date DESC, id DESC");
 $paymentsStmt->execute([$loan['id']]);
 $payments = $paymentsStmt->fetchAll();
 
@@ -197,22 +221,71 @@ $projRemaining = array_column($projection, 'remaining');
 <div class="card p-3 mb-4">
   <h5>Overzicht betalingen</h5>
   <?php if (isset($_GET['pOK'])): ?><div class="alert alert-success">Betaling toegevoegd.</div><?php endif; ?>
+  <?php if (isset($_GET['pEdit'])): ?><div class="alert alert-success">Betaling bijgewerkt.</div><?php endif; ?>
+  <?php if (isset($_GET['pDelete'])): ?><div class="alert alert-success">Betaling verwijderd.</div><?php endif; ?>
   <table class="table table-hover">
     <thead>
       <tr>
-        <th>Datum</th><th>Bedrag</th><th>Rente</th><th>Aflossing</th><th>Restschuld</th><th>Notitie</th>
+        <th>Datum</th><th>Bedrag</th><th>Rente</th><th>Aflossing</th><th>Restschuld</th><th>Notitie</th><?php if ($can_edit && $u['role']!=='borrower'): ?><th>Acties</th><?php endif; ?>
       </tr>
     </thead>
     <tbody>
       <?php foreach($alloc['allocations'] as $a): ?>
         <tr>
-          <td><?=h($a['date'])?></td>
+          <td><?= date('d-m-Y', strtotime($a['date'])) ?></td>
           <td><?=money_fmt($a['amount'])?></td>
           <td><?=money_fmt($a['interest'])?></td>
           <td><?=money_fmt($a['principal'])?></td>
           <td><?=money_fmt($a['remaining'])?></td>
           <td><?=isset($a['note']) ? h($a['note']) : ''?></td>
+          <?php if ($can_edit && $u['role']!=='borrower'): ?>
+          <td>
+            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editPaymentModal<?=$a['id']?>">Bewerk</button>
+          </td>
+          <?php endif; ?>
         </tr>
+        <?php if ($can_edit && $u['role']!=='borrower'): ?>
+        <div class="modal fade" id="editPaymentModal<?=$a['id']?>" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Betaling bewerken</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <form method="post">
+                <?php csrf_field(); ?>
+                <div class="modal-body">
+                  <input type="hidden" name="payment_id" value="<?=$a['id']?>">
+                  <input type="hidden" name="update_payment" value="1">
+                  <div class="mb-3">
+                    <label class="form-label">Datum</label>
+                    <input type="date" class="form-control" name="date" value="<?=h($a['date'])?>" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Bedrag (€)</label>
+                    <input type="number" step="0.01" class="form-control" name="amount" value="<?=h($a['amount'])?>" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Notitie</label>
+                    <input type="text" class="form-control" name="note" value="<?=isset($a['note']) ? h($a['note']) : ''?>">
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+                  <button type="submit" class="btn btn-primary">Opslaan</button>
+                </div>
+              </form>
+              <div style="padding: 0 1rem 1rem;">
+                <form method="post" style="display:inline;">
+                  <?php csrf_field(); ?>
+                  <input type="hidden" name="delete_payment" value="<?=$a['id']?>">
+                  <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Weet je het zeker?')">Verwijderen</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
       <?php endforeach; ?>
     </tbody>
   </table>
