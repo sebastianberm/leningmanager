@@ -226,7 +226,7 @@ $projRemaining = array_column($projection, 'remaining');
   <table class="table table-hover">
     <thead>
       <tr>
-        <th>Datum</th><th>Bedrag</th><th>Rente</th><th>Aflossing</th><th>Restschuld</th><th>Notitie</th><?php if ($can_edit && $u['role']!=='borrower'): ?><th>Acties</th><?php endif; ?>
+        <th>Datum</th><th>Bedrag</th><th>Rente</th><th>Aflossing</th><th>Restschuld</th><th>Notitie</th><?php if ($can_edit && $u['role']!=='borrower' && !empty(array_filter($alloc['allocations'], fn($a) => isset($a['id']) && $a['id'] > 0))): ?><th>Acties</th><?php endif; ?>
       </tr>
     </thead>
     <tbody>
@@ -238,10 +238,12 @@ $projRemaining = array_column($projection, 'remaining');
           <td><?=money_fmt($a['principal'])?></td>
           <td><?=money_fmt($a['remaining'])?></td>
           <td><?=isset($a['note']) ? h($a['note']) : ''?></td>
-          <?php if ($can_edit && $u['role']!=='borrower'): ?>
+          <?php if ($can_edit && $u['role']!=='borrower' && isset($a['id']) && $a['id'] > 0): ?>
           <td>
             <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editPaymentModal<?=$a['id']?>">Bewerk</button>
           </td>
+          <?php else: ?>
+          <td></td>
           <?php endif; ?>
         </tr>
       <?php endforeach; ?>
@@ -251,6 +253,7 @@ $projRemaining = array_column($projection, 'remaining');
 
 <?php if ($can_edit && $u['role']!=='borrower'): ?>
 <?php foreach($alloc['allocations'] as $a): ?>
+<?php if (isset($a['id']) && $a['id'] > 0): ?>
 <div class="modal fade" id="editPaymentModal<?=$a['id']?>" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -285,6 +288,7 @@ $projRemaining = array_column($projection, 'remaining');
     </div>
   </div>
 </div>
+<?php endif; ?>
 <?php endforeach; ?>
 <?php endif; ?>
 
