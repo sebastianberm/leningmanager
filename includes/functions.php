@@ -59,11 +59,13 @@ function compute_allocation_with_payments($loan, $payments) {
         $remaining -= $principal;
         if ($remaining < 0) $remaining = 0;
         $alloc[] = [
+            'id' => (int)$p['id'],
             'date' => $p['date'],
             'amount' => round($amount, 2),
             'interest' => round($interest, 2),
             'principal' => round($principal, 2),
             'remaining' => round($remaining, 2),
+            'note' => $p['note'] ?? '',
         ];
     }
     return ['remaining'=>round($remaining,2), 'allocations'=>$alloc];
