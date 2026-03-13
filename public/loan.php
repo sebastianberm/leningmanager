@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
         $ins=$db->prepare("INSERT INTO payments(loan_id,date,amount,note) VALUES(?,?,?,?)");
         $ins->execute([$loan['id'],$date,$amount,$note]);
 
-        $paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date DESC, id DESC");
+        $paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
         $paymentsStmt->execute([$loan['id']]);
         $payments = $paymentsStmt->fetchAll();
         $alloc = compute_allocation_with_payments($loan, $payments);
@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_loan'])) {
 
 
 
-$paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date DESC, id DESC");
+$paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
 $paymentsStmt->execute([$loan['id']]);
 $payments = $paymentsStmt->fetchAll();
 
@@ -230,7 +230,7 @@ $projRemaining = array_column($projection, 'remaining');
       </tr>
     </thead>
     <tbody>
-      <?php foreach($alloc['allocations'] as $a): ?>
+      <?php foreach(array_reverse($alloc['allocations']) as $a): ?>
         <tr>
           <td><?= date('d-m-Y', strtotime($a['date'])) ?></td>
           <td><?=money_fmt($a['amount'])?></td>
@@ -252,7 +252,7 @@ $projRemaining = array_column($projection, 'remaining');
 </div>
 
 <?php if ($can_edit && $u['role']!=='borrower'): ?>
-<?php foreach($alloc['allocations'] as $a): ?>
+<?php foreach(array_reverse($alloc['allocations']) as $a): ?>
 <?php if (isset($a['id']) && $a['id'] > 0): ?>
 <div class="modal fade" id="editPaymentModal<?=$a['id']?>" tabindex="-1">
   <div class="modal-dialog">
