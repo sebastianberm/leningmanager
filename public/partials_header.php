@@ -22,6 +22,7 @@
           <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/loans.php">💰 Leningen</a></li>
           <?php if (in_array($_SESSION['user']['role'], ['admin','manager'])): ?>
             <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/mortgages.php">🏠 Hypotheken</a></li>
+            <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/rente_rekenmodule.php">🧮 Rentecheck</a></li>
             <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/users.php">👥 Gebruikers</a></li>
             <li class="nav-item"><a class="nav-link" href="<?= BASE_PATH ?>/migrations.php">🔧 Migraties</a></li>
           <?php endif; ?>
