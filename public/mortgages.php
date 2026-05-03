@@ -12,6 +12,23 @@ if (!$is_staff) { http_response_code(403); exit('Alleen beheerders.'); }
 
 $errors = [];
 
+
+function elapsed_months_from_start(?string $startDate): int {
+    if (!$startDate) return 0;
+    try {
+        $start = new DateTimeImmutable($startDate);
+        $today = new DateTimeImmutable('today');
+    } catch (Exception $e) {
+        return 0;
+    }
+    if ($start > $today) return 0;
+    $diff = $start->diff($today);
+    $months = ($diff->y * 12) + $diff->m;
+    if ($today->format('d') < $start->format('d')) $months = max(0, $months - 1);
+    return $months;
+}
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_mortgage'])) {
     $id = (int)($_POST['mortgage_id'] ?? 0);
     $del = $db->prepare('DELETE FROM mortgages WHERE id=?');
@@ -91,6 +108,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_value_event'])) 
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_paid_months'])) {
+    $mortgage_id = (int)($_POST['mortgage_id'] ?? 0);
+    $mode = $_POST['paid_mode'] ?? 'manual';
+    $manual_months = max(0, (int)($_POST['months_elapsed'] ?? 0));
+    if ($mortgage_id <= 0) $errors[] = 'Ongeldige hypotheek.';
+    if (!$errors) {
+        $stmt = $db->prepare('SELECT start_date FROM mortgages WHERE id=?');
+        $stmt->execute([$mortgage_id]);
+        $start_date = $stmt->fetchColumn();
+        $months_elapsed = $mode === 'auto' ? elapsed_months_from_start($start_date ?: null) : $manual_months;
+        $upd = $db->prepare('UPDATE mortgages SET months_elapsed=? WHERE id=?');
+        $upd->execute([$months_elapsed, $mortgage_id]);
+        header('Location: '.BASE_PATH.'/mortgages.php?pOK=1'); exit;
+    }
+}
+
 $mortgages = $db->query('SELECT * FROM mortgages ORDER BY created_at DESC')->fetchAll();
 include __DIR__ . '/partials_header.php';
 ?>
@@ -104,6 +137,7 @@ include __DIR__ . '/partials_header.php';
   <?php if (isset($_GET['eOK'])): ?><div class="alert alert-success">Component-event opgeslagen.</div><?php endif; ?>
   <?php if (isset($_GET['vOK'])): ?><div class="alert alert-success">Woningwaarde-event opgeslagen.</div><?php endif; ?>
   <?php if (isset($_GET['dOK'])): ?><div class="alert alert-success">Hypotheek verwijderd.</div><?php endif; ?>
+  <?php if (isset($_GET['pOK'])): ?><div class="alert alert-success">Betaalde maanden bijgewerkt.</div><?php endif; ?>
 </div>
 <div class="card p-3 mb-4"><h5>Nieuwe hypotheek</h5><form method="post"><?php csrf_field(); ?><input type="hidden" name="create_mortgage" value="1">
 <div class="row g-2"><div class="col-md-3"><input class="form-control" name="name" placeholder="Naam"></div><div class="col-md-3"><input class="form-control" type="number" step="0.01" name="property_value" placeholder="Woningwaarde"></div><div class="col-md-3"><input class="form-control" type="date" name="start_date"></div><div class="col-md-3"><input class="form-control" type="number" name="months_elapsed" placeholder="Reeds betaald (maanden)"></div></div><button class="btn btn-primary mt-2">Opslaan</button></form></div>
@@ -122,7 +156,12 @@ $maxMonths = max(array_map(fn($c)=>(int)$c['term_months'], $components) ?: [0]);
 $projection = build_mortgage_projection($components, $componentEvents, (float)$m['property_value'], $valueEvents, $maxMonths);
 ?>
 <div class="card p-3 mb-4"><div class="d-flex justify-content-between"><h4><?=h($m['name'])?></h4><form method="post" onsubmit="return confirm('Weet je het zeker?')"><?php csrf_field(); ?><input type="hidden" name="delete_mortgage" value="1"><input type="hidden" name="mortgage_id" value="<?=$m['id']?>"><button class="btn btn-sm btn-danger">Hypotheek wissen</button></form></div>
-<p>Woningwaarde start: <?=money_fmt($m['property_value'])?> · Reeds betaald: <?= (int)$m['months_elapsed'] ?> maanden</p>
+<?php $autoMonths = elapsed_months_from_start($m['start_date'] ?? null); ?>
+<p>Woningwaarde start: <?=money_fmt($m['property_value'])?> · Reeds betaald: <?= (int)$m['months_elapsed'] ?> maanden · Verwacht o.b.v. startdatum (<?=h($m['start_date'])?>): <?=$autoMonths?> maanden</p>
+<form method="post" class="row g-2 align-items-end border rounded p-2 mb-3"><?php csrf_field(); ?><input type="hidden" name="update_paid_months" value="1"><input type="hidden" name="mortgage_id" value="<?=$m['id']?>">
+<div class="col-md-3"><label class="form-label mb-0">Betaalde maanden</label><input class="form-control" type="number" min="0" name="months_elapsed" value="<?= (int)$m['months_elapsed'] ?>"></div>
+<div class="col-md-4"><div class="form-check"><input class="form-check-input" type="radio" name="paid_mode" id="paid_manual<?=$m['id']?>" value="manual" checked><label class="form-check-label" for="paid_manual<?=$m['id']?>">Handmatig gebruiken</label></div><div class="form-check"><input class="form-check-input" type="radio" name="paid_mode" id="paid_auto<?=$m['id']?>" value="auto"><label class="form-check-label" for="paid_auto<?=$m['id']?>">Automatisch t/m vandaag (<?=$autoMonths?>)</label></div></div>
+<div class="col-md-2"><button class="btn btn-outline-primary">Opslaan</button></div></form>
 <form method="post" class="border p-2 mb-2"><?php csrf_field(); ?><input type="hidden" name="create_component" value="1"><input type="hidden" name="mortgage_id" value="<?=$m['id']?>">
 <div class="row g-2"><div class="col"><input class="form-control" name="component_name" placeholder="Naam"></div><div class="col"><input class="form-control" name="principal" type="number" step="0.01" placeholder="Hoofdsom"></div><div class="col"><input class="form-control" name="rate" type="number" step="0.0001" placeholder="Rente"></div><div class="col"><input class="form-control" name="term_months" type="number" placeholder="Looptijd"></div><div class="col"><input class="form-control" name="fixed_rate_months" type="number" placeholder="Renteduur"></div><div class="col"><select class="form-select" name="type"><option value="annuity">Annuïtair</option><option value="linear">Lineair</option><option value="interest_only">Aflossingsvrij</option></select></div></div><button class="btn btn-outline-primary mt-2">Component toevoegen</button></form>
 
@@ -134,8 +173,8 @@ $projection = build_mortgage_projection($components, $componentEvents, (float)$m
 
 <form method="post" class="border p-2 mb-3"><?php csrf_field(); ?><input type="hidden" name="save_value_event" value="1"><input type="hidden" name="mortgage_id" value="<?=$m['id']?>"><div class="row g-2"><div class="col-md-3"><input class="form-control" type="number" name="month_index" placeholder="Maand index"></div><div class="col-md-3"><input class="form-control" type="number" step="0.01" name="property_value" placeholder="Nieuwe woningwaarde"></div><div class="col-md-3"><button class="btn btn-outline-primary">Waarde-event opslaan</button></div></div></form>
 
-<table class="table table-striped table-sm"><thead><tr><th>Maand</th><th>Status</th><th>Maandbedrag</th><th>Restschuld</th><th>Woningwaarde</th><th>LTV/L2V</th></tr></thead><tbody>
-<?php foreach($projection['rows'] as $r): $paid = $r['month'] <= (int)$m['months_elapsed']; ?><tr><td><?=$r['month']?></td><td><?=$paid?'Betaald':'Prognose'?></td><td><?=money_fmt($r['payment'])?></td><td><?=money_fmt($r['remaining'])?></td><td><?=money_fmt($r['property_value'])?></td><td><?=number_format($r['ltv'],2,',','.')?>%</td></tr><?php endforeach; ?>
+<table class="table table-striped table-sm"><thead><tr><th>Maand</th><th>Status</th><th>Maandbedrag</th><th>Restschuld</th><th>Woningwaarde</th><th>LTV/L2V</th><th>+ Aflossing</th></tr></thead><tbody>
+<?php foreach($projection['rows'] as $r): $paid = $r['month'] <= (int)$m['months_elapsed']; ?><tr><td><?=$r['month']?></td><td><?=$paid?'Betaald':'Prognose'?></td><td><?=money_fmt($r['payment'])?></td><td><?=money_fmt($r['remaining'])?></td><td><?=money_fmt($r['property_value'])?></td><td><?=number_format($r['ltv'],2,',','.')?>%</td><td><details><summary class="text-primary" style="cursor:pointer">＋</summary><form method="post" class="row g-1 mt-1"><?php csrf_field(); ?><input type="hidden" name="save_component_event" value="1"><div class="col-12"><select class="form-select form-select-sm" name="component_id" required><option value="">Kies deel</option><?php foreach($components as $compOpt): ?><option value="<?=$compOpt['id']?>"><?=h($compOpt['name'])?></option><?php endforeach; ?></select></div><input type="hidden" name="month_index" value="<?=$r['month']?>"><div class="col-6"><input class="form-control form-control-sm" type="number" step="0.0001" name="event_rate" placeholder="rente %"></div><div class="col-6"><input class="form-control form-control-sm" type="number" step="0.01" name="extra_payment" placeholder="extra"></div><div class="col-12"><button class="btn btn-sm btn-outline-primary w-100">Opslaan</button></div></form></details></td></tr><?php endforeach; ?>
 </tbody></table>
 <canvas id="chart<?=$m['id']?>" height="120"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
