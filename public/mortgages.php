@@ -96,7 +96,14 @@ include __DIR__ . '/partials_header.php';
 ?>
 <div class="card p-3 mb-4">
   <h1>Hypotheken (beheer)</h1>
+  <p class="text-muted">Los overzicht voor beheerders met meerdere hypotheekdelen, events en maandelijkse LTV/L2V.</p>
   <?php if ($errors): ?><div class="alert alert-danger"><?=implode('<br>', array_map('h',$errors))?></div><?php endif; ?>
+  <?php if (isset($_GET['mOK'])): ?><div class="alert alert-success">Hypotheek opgeslagen.</div><?php endif; ?>
+  <?php if (isset($_GET['cOK'])): ?><div class="alert alert-success">Component opgeslagen.</div><?php endif; ?>
+  <?php if (isset($_GET['uOK'])): ?><div class="alert alert-success">Component bijgewerkt.</div><?php endif; ?>
+  <?php if (isset($_GET['eOK'])): ?><div class="alert alert-success">Component-event opgeslagen.</div><?php endif; ?>
+  <?php if (isset($_GET['vOK'])): ?><div class="alert alert-success">Woningwaarde-event opgeslagen.</div><?php endif; ?>
+  <?php if (isset($_GET['dOK'])): ?><div class="alert alert-success">Hypotheek verwijderd.</div><?php endif; ?>
 </div>
 <div class="card p-3 mb-4"><h5>Nieuwe hypotheek</h5><form method="post"><?php csrf_field(); ?><input type="hidden" name="create_mortgage" value="1">
 <div class="row g-2"><div class="col-md-3"><input class="form-control" name="name" placeholder="Naam"></div><div class="col-md-3"><input class="form-control" type="number" step="0.01" name="property_value" placeholder="Woningwaarde"></div><div class="col-md-3"><input class="form-control" type="date" name="start_date"></div><div class="col-md-3"><input class="form-control" type="number" name="months_elapsed" placeholder="Reeds betaald (maanden)"></div></div><button class="btn btn-primary mt-2">Opslaan</button></form></div>
