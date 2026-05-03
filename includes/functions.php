@@ -91,3 +91,45 @@ function curl_post_json($url, $data) {
     curl_close($ch);
     return $response;
 }
+
+
+function component_schedule($principal, $rate_year, $term_months, $type='annuity') {
+    $rows = [];
+    $r = ($rate_year/100.0)/12.0;
+    $remaining = (float)$principal;
+    $annuity = $type === 'annuity' ? annuity_payment($principal, $rate_year, $term_months) : 0;
+    $linearPrincipal = $type === 'linear' ? ($principal / $term_months) : 0;
+
+    for ($i=1; $i <= $term_months; $i++) {
+        $interest = $remaining * $r;
+        if ($type === 'annuity') {
+            $principalPart = max(0, $annuity - $interest);
+        } elseif ($type === 'linear') {
+            $principalPart = $linearPrincipal;
+        } else {
+            $principalPart = ($i === $term_months) ? $remaining : 0;
+        }
+        $remaining -= $principalPart;
+        if ($remaining < 0) $remaining = 0;
+        $rows[] = ['month'=>$i,'remaining'=>round($remaining,2)];
+    }
+    return $rows;
+}
+
+function build_mortgage_ltv_overview(array $components, float $propertyValue, int $months): array {
+    $schedules = [];
+    foreach ($components as $c) {
+        $schedules[] = component_schedule((float)$c['principal'], (float)$c['rate'], (int)$c['term_months'], $c['type']);
+    }
+
+    $overview = [];
+    for ($m = 1; $m <= $months; $m++) {
+        $remaining = 0.0;
+        foreach ($schedules as $s) {
+            $remaining += $s[$m-1]['remaining'] ?? 0.0;
+        }
+        $ltv = $propertyValue > 0 ? ($remaining / $propertyValue) * 100 : 0;
+        $overview[] = ['month'=>$m, 'remaining'=>round($remaining,2), 'ltv'=>round($ltv,2)];
+    }
+    return $overview;
+}
