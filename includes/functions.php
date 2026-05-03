@@ -139,11 +139,15 @@ function build_component_projection(array $component, array $eventsByMonth): arr
     $type = $component['type'];
     $remaining = (float)$component['principal'];
     $baseRate = (float)$component['rate'];
+    $currentRate = $baseRate;
     $rows = [];
 
     for ($month = 0; $month <= $term; $month++) {
         $event = $eventsByMonth[$month] ?? ['rate'=>null,'extra_payment'=>0.0];
-        $rate = $event['rate'] !== null ? (float)$event['rate'] : $baseRate;
+        if ($event['rate'] !== null && $event['rate'] !== '') {
+            $currentRate = (float)$event['rate'];
+        }
+        $rate = $currentRate;
         $extra = max(0.0, (float)($event['extra_payment'] ?? 0.0));
 
         if ($month === 0) {

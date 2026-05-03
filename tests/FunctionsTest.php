@@ -106,4 +106,36 @@ final class FunctionsTest extends TestCase {
         $this->assertCount(8, $sched);
     }
 
+
+    public function testBuildComponentProjectionRateChangePersists() {
+        $component = [
+            'term_months' => 4,
+            'type' => 'annuity',
+            'principal' => 100000,
+            'rate' => 2.0,
+        ];
+        $events = [
+            2 => ['rate' => 6.0, 'extra_payment' => 0],
+        ];
+
+        $rows = build_component_projection($component, $events);
+        $this->assertEquals(2.0, $rows[1]['rate']);
+        $this->assertEquals(6.0, $rows[2]['rate']);
+        $this->assertEquals(6.0, $rows[3]['rate']);
+        $this->assertEquals(6.0, $rows[4]['rate']);
+    }
+
+    public function testBuildMortgageProjectionIncludesMonthZero() {
+        $components = [[
+            'id' => 1,
+            'term_months' => 3,
+            'type' => 'linear',
+            'principal' => 1200,
+            'rate' => 12,
+        ]];
+        $projection = build_mortgage_projection($components, [], 300000, [], 3);
+        $this->assertEquals(0, $projection['rows'][0]['month']);
+        $this->assertEquals(1200.0, $projection['rows'][0]['remaining']);
+        $this->assertEquals(0.0, $projection['rows'][0]['payment']);
+    }
 }
