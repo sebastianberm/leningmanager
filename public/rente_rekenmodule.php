@@ -95,6 +95,19 @@ function fit_label(float $avgDelta): string {
     return 'Matig';
 }
 
+function rate_traffic_color(float $rate): string {
+    $pct = $rate * 100;
+    if ($pct < 4)  return 'green';
+    if ($pct < 7)  return 'orange';
+    return 'red';
+}
+
+function fit_traffic_color(float $avgDelta): string {
+    if ($avgDelta < 1.00)  return 'green';
+    if ($avgDelta < 10.00) return 'orange';
+    return 'red';
+}
+
 function fit_explanation(float $avgDelta): string {
     if ($avgDelta < 0.01)  return 'De berekening sluit vrijwel exact aan op alle bekende saldi. De gevonden rente is zeer betrouwbaar.';
     if ($avgDelta < 1.00)  return 'De berekening wijkt gemiddeld minder dan €1,- af van de bekende saldi. De gevonden rente is betrouwbaar.';
@@ -146,6 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['export_pdf'])) {
         $fitExpl      = fit_explanation($result['avg']);
         $rateCtx      = rate_context($result['rate']);
         $rateLabel    = rate_label($result['rate']);
+        $trafficColor = rate_traffic_color($result['rate']);
         $exportDate   = date('d-m-Y');
         $periodFrom   = date('d-m-Y', strtotime($result['start']['date']));
         $periodTo     = date('d-m-Y', strtotime($result['end']['date']));
@@ -199,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['export_pdf'])) {
         $pdf->SetTextColor(30, 30, 30);
         $pdf->SetFillColor(255, 255, 255);
 
-        // Rente blokken naast elkaar
+        // Rente blokken naast elkaar (3 kolommen, geen kwalificatie erin)
         $pdf->SetDrawColor(200, 213, 230);
         $pdf->SetFillColor(249, 251, 253);
         $col = 55;
@@ -208,17 +222,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['export_pdf'])) {
         $pdf->SetFont('helvetica', '', 8);
         $pdf->Cell($col, 6, 'Effectieve jaarrente', 1, 0, 'C', true);
         $pdf->Cell($col, 6, 'Effectieve maandrente', 1, 0, 'C', true);
-        $pdf->Cell($col, 6, 'Nominale maandrente', 1, 0, 'C', true);
-        $pdf->Cell(0,   6, 'Kwalificatie', 1, 1, 'C', true);
+        $pdf->Cell(0,    6, 'Nominale maandrente',   1, 1, 'C', true);
 
         $pdf->SetFont('helvetica', 'B', 14);
         $pdf->SetFillColor(255, 255, 255);
-        $pdf->Cell($col, $bh, $ratePct . '%', 1, 0, 'C', true);
+        $pdf->Cell($col, $bh, $ratePct . '%',      1, 0, 'C', true);
         $pdf->SetFont('helvetica', 'B', 10);
-        $pdf->Cell($col, $bh, $monthlyPct . '%', 1, 0, 'C', true);
-        $pdf->Cell($col, $bh, $nomMonthlyPct . '%', 1, 0, 'C', true);
+        $pdf->Cell($col, $bh, $monthlyPct . '%',   1, 0, 'C', true);
+        $pdf->Cell(0,    $bh, $nomMonthlyPct . '%',1, 1, 'C', true);
+        $pdf->Ln(4);
+
+        // ── KWALIFICATIE STOPLICHT
+        if ($trafficColor === 'green')      $pdf->SetFillColor(34, 197, 94);
+        elseif ($trafficColor === 'orange') $pdf->SetFillColor(249, 115, 22);
+        else                                $pdf->SetFillColor(239, 68, 68);
+        $pdf->SetTextColor(255, 255, 255);
         $pdf->SetFont('helvetica', 'B', 11);
-        $pdf->Cell(0,   $bh, $rateLabel, 1, 1, 'C', true);
+        $pdf->Cell(0, 10, 'Kwalificatie rente: ' . strtoupper($rateLabel), 1, 1, 'C', true);
+        $pdf->SetTextColor(30, 30, 30);
         $pdf->Ln(2);
 
         // Toelichting op de rente
@@ -421,7 +442,7 @@ include __DIR__ . '/partials_header.php';
   font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.04em; color: #718096;
 }
-.rc-col-labels .col-md-4:last-of-type { min-width: 2.5rem; max-width: 2.5rem; }
+.rc-col-labels .col-auto { min-width: 5.5rem; }
 .input-row .btn-outline-danger { opacity: 0.55; }
 .input-row .btn-outline-danger:hover { opacity: 1; }
 .rc-stat-card {
@@ -451,6 +472,23 @@ include __DIR__ . '/partials_header.php';
 .fit-Goed       { background: #bee3f8; color: #2a4365; }
 .fit-Redelijk   { background: #fefcbf; color: #744210; }
 .fit-Matig      { background: #fed7d7; color: #742a2a; }
+/* Traffic light */
+.rc-traffic-light {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.65rem 1rem; border-radius: 0.75rem;
+  font-size: 0.9rem;
+}
+.rc-traffic-light.tl-green  { background: #f0fdf4; border: 1px solid #86efac; color: #14532d; }
+.rc-traffic-light.tl-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; }
+.rc-traffic-light.tl-red    { background: #fef2f2; border: 1px solid #fecaca; color: #7f1d1d; }
+.rc-tl-dot {
+  display: inline-block; width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+}
+.rc-tl-dot.tl-green  { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+.rc-tl-dot.tl-orange { background: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.2); }
+.rc-tl-dot.tl-red    { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.2); }
+.rc-btn-duplicate { opacity: 0.55; font-size: 0.75rem; padding: 0.2rem 0.45rem; }
+.rc-btn-duplicate:hover { opacity: 1; }
 </style>
 
 <!-- PAGE HEADER -->
@@ -492,7 +530,7 @@ include __DIR__ . '/partials_header.php';
     <div class="rc-col-labels row g-2 px-1">
       <div class="col-md-4"><span>Datum</span></div>
       <div class="col-md-4"><span>Saldo op die datum (€)</span></div>
-      <div class="col-md-4" style="max-width:2.5rem;"></div>
+      <div class="col-auto" style="min-width:5.5rem;"></div>
     </div>
     <div id="knownRows"></div>
     <button class="btn btn-sm btn-outline-secondary mb-4" type="button" onclick="addRow('knownRows','known')">
@@ -512,7 +550,7 @@ include __DIR__ . '/partials_header.php';
     <div class="rc-col-labels row g-2 px-1">
       <div class="col-md-4"><span>Datum van betaling</span></div>
       <div class="col-md-4"><span>Afgelost bedrag (€)</span></div>
-      <div class="col-md-4" style="max-width:2.5rem;"></div>
+      <div class="col-auto" style="min-width:5.5rem;"></div>
     </div>
     <div id="paymentRows"></div>
     <button class="btn btn-sm btn-outline-secondary mb-4" type="button" onclick="addRow('paymentRows','payment')">
@@ -532,7 +570,7 @@ include __DIR__ . '/partials_header.php';
     <div class="rc-col-labels row g-2 px-1">
       <div class="col-md-4"><span>Datum</span></div>
       <div class="col-md-4"><span>Kostenbedrag (€)</span></div>
-      <div class="col-md-4" style="max-width:2.5rem;"></div>
+      <div class="col-auto" style="min-width:5.5rem;"></div>
     </div>
     <div id="costRows"></div>
     <button class="btn btn-sm btn-outline-secondary mb-4" type="button" onclick="addRow('costRows','cost')">
@@ -558,9 +596,11 @@ include __DIR__ . '/partials_header.php';
 
 <!-- RESULTAAT -->
 <?php if ($result):
-    $fitLbl  = fit_label($result['avg']);
-    $fitExpl = fit_explanation($result['avg']);
-    $rateCtx = rate_context($result['rate']);
+    $fitLbl       = fit_label($result['avg']);
+    $fitExpl      = fit_explanation($result['avg']);
+    $rateCtx      = rate_context($result['rate']);
+    $trafficColor = rate_traffic_color($result['rate']);
+    $fitColor     = fit_traffic_color($result['avg']);
 ?>
 <div class="card p-4 mb-4">
 
@@ -591,6 +631,12 @@ include __DIR__ . '/partials_header.php';
     </div>
   </div>
 
+  <!-- Kwalificatie stoplicht -->
+  <div class="rc-traffic-light tl-<?= h($trafficColor) ?> mb-3">
+    <span class="rc-tl-dot tl-<?= h($trafficColor) ?>"></span>
+    <span><strong>Kwalificatie rente: <?= h(rate_label($result['rate'])) ?></strong></span>
+  </div>
+
   <!-- Context uitleg over de gevonden rente -->
   <div class="rc-context-box mb-3">
     💡 <?= h($rateCtx) ?>
@@ -612,9 +658,15 @@ include __DIR__ . '/partials_header.php';
     </div>
   </details>
 
+  <!-- Grafiek: saldo over tijd -->
+  <div class="mb-4">
+    <h6 class="mb-2">Saldoverloop</h6>
+    <canvas id="renteChart" height="80"></canvas>
+  </div>
+
   <!-- Controle tabel -->
   <h6 class="mt-2 mb-1">Controle per pijldatum
-    <span class="fit-badge fit-<?= h($fitLbl) ?>"><?= h($fitLbl) ?></span>
+    <span class="rc-tl-dot tl-<?= h($fitColor) ?>" style="vertical-align:middle; margin-right:4px;"></span><span class="fit-badge fit-<?= h($fitLbl) ?>"><?= h($fitLbl) ?></span>
   </h6>
   <p class="text-muted" style="font-size:0.85rem; margin-bottom:0.5rem;">
     <?= h($fitExpl) ?>
@@ -656,9 +708,6 @@ include __DIR__ . '/partials_header.php';
     </table>
   </div>
 
-  <!-- Grafiek -->
-  <canvas id="renteChart" height="90"></canvas>
-
   <!-- Methode toelichting -->
   <details class="mt-3">
     <summary class="mortgage-details-summary fw-semibold" style="font-size:0.9rem;">Hoe is de rente berekend? (technische toelichting)</summary>
@@ -695,7 +744,8 @@ function rowHtml(kind, d = '', a = '') {
         <input class="form-control" type="number" step="0.01" name="${kind}_amounts[]" value="${a}" placeholder="0,00">
       </div>
     </div>
-    <div class="col-auto">
+    <div class="col-auto d-flex gap-1">
+      <button type="button" class="btn btn-sm btn-outline-secondary rc-btn-duplicate" onclick="duplicateNextMonth(this, '${kind}')" title="Dupliceer naar volgende maand">+1m</button>
       <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)" title="Verwijder rij">✕</button>
     </div>
   </div>`;
@@ -707,6 +757,25 @@ function addRow(id, kind, d = '', a = '') {
 
 function removeRow(btn) {
   btn.closest('.input-row').remove();
+}
+
+function duplicateNextMonth(btn, kind) {
+  const row         = btn.closest('.input-row');
+  const dateInput   = row.querySelector('input[type="date"]');
+  const amountInput = row.querySelector('input[type="number"]');
+  const amount      = amountInput.value;
+  let nextDate = '';
+  if (dateInput.value) {
+    const d   = new Date(dateInput.value);
+    const day = d.getDate();
+    d.setMonth(d.getMonth() + 1);
+    // Clamp to last day of month if overflow (e.g. Jan 31 → Feb 28)
+    if (d.getDate() !== day) d.setDate(0);
+    nextDate = d.toISOString().slice(0, 10);
+  }
+  const newRow = document.createElement('div');
+  newRow.innerHTML = rowHtml(kind, nextDate, amount);
+  row.after(newRow.firstElementChild);
 }
 
 function resetForm() {
