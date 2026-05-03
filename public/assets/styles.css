@@ -492,3 +492,66 @@ body {
 .modal-open .table-hover tbody tr:hover {
   transform: none !important;
 }
+
+/* HYPOTHEEK PAGINA */
+
+/* Details/summary trigger styling */
+.mortgage-details-summary {
+  cursor: pointer;
+  color: var(--accent);
+  list-style: none;
+  padding: 0.4rem 0;
+  user-select: none;
+}
+
+.mortgage-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.mortgage-details-summary::before {
+  content: '▶ ';
+  font-size: 0.7em;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+details[open] .mortgage-details-summary::before {
+  transform: rotate(90deg);
+}
+
+.mortgage-event-summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.mortgage-event-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Betaalde rijen in prognose tabel */
+.table-success td {
+  background-color: rgba(72, 187, 120, 0.08) !important;
+}
+
+/* Jaar-badge in prognose tabel */
+tr.year-row > td:first-child {
+  font-weight: 600;
+}
+
+/* Statistiek-blokken bovenaan hypotheek */
+.card .border.rounded {
+  border-color: #e2e8f0 !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card .border.rounded:hover {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(66,153,225,0.1);
+}
+
+/* Prognose toggle schakelaar */
+.form-check.form-switch .form-check-input:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
