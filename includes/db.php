@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS payments (
     loan_id INTEGER NOT NULL,
     date TEXT NOT NULL,
     amount REAL NOT NULL,
+    transaction_type TEXT NOT NULL DEFAULT 'payment' CHECK(transaction_type IN ('payment','principal_increase')),
     note TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(loan_id) REFERENCES loans(id)

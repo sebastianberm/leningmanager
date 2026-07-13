@@ -14,23 +14,38 @@ $payments = $paymentsStmt->fetchAll();
 
 $alloc = compute_allocation_with_payments($loan, $payments);
 $current_remaining = $alloc['remaining'];
-$months_left = max(0, $loan['term_months'] - count($payments));
+$elapsed_payment_periods = loan_elapsed_payment_periods($alloc['allocations']);
+$months_left = loan_months_left($loan, $alloc['allocations']);
 $projection = generate_projection_schedule($current_remaining, $loan['rate'], $months_left, $loan['type']);
 
 header('Content-Type: text/csv');
 header('Content-Disposition: attachment; filename="lening_'.$loan['id'].'_schema.csv"');
 
 $out = fopen('php://output', 'w');
-fputcsv($out, ['Maand', 'Betaling', 'Rente', 'Prognose betaling', 'Restschuld']);
-$base_schedule = schedule($loan['principal'], $loan['rate'], $loan['term_months'], $loan['type']);
-foreach ($base_schedule as $i => $row) {
-    $projPay = $projection[$i]['payment'] ?? '';
+fputcsv($out, ['Soort', 'Datum/termijn', 'Bedrag', 'Rente', 'Aflossing / mutatie hoofdsom', 'Hoofdsomverhoging', 'Restschuld']);
+
+foreach ($alloc['allocations'] as $a) {
     fputcsv($out, [
-        $row['month'],
-        number_format($row['payment'], 2, ',', '.'),
-        number_format($row['interest'], 2, ',', '.'),
-        $projPay ? number_format($projPay, 2, ',', '.') : '',
-        number_format($row['remaining'], 2, ',', '.')
+        $a['type_label'] ?? transaction_type_label($a['transaction_type'] ?? 'payment'),
+        date('d-m-Y', strtotime($a['date'])),
+        number_format($a['amount'], 2, ',', '.'),
+        number_format($a['interest'], 2, ',', '.'),
+        number_format($a['principal'], 2, ',', '.'),
+        !empty($a['principal_increase']) ? number_format($a['principal_increase'], 2, ',', '.') : '',
+        number_format($a['remaining'], 2, ',', '.'),
     ]);
 }
+
+foreach ($projection as $i => $row) {
+    fputcsv($out, [
+        'Prognose',
+        'Termijn ' . ($elapsed_payment_periods + $i + 1),
+        number_format($row['payment'], 2, ',', '.'),
+        number_format($row['interest'], 2, ',', '.'),
+        number_format($row['principal'], 2, ',', '.'),
+        '',
+        number_format($row['remaining'], 2, ',', '.'),
+    ]);
+}
+
 fclose($out);

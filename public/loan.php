@@ -34,12 +34,16 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_payment'])) {
     if (!$can_edit || $u['role']==='borrower') { http_response_code(403); exit; }
     $payment_id = (int)$_POST['payment_id'];
     $date = $_POST['date'] ?? '';
-    $amount = (float)($_POST['amount'] ?? 0);
+    $raw_amount = (float)($_POST['amount'] ?? 0);
+    $raw_transaction_type = $_POST['transaction_type'] ?? 'payment';
+    $transaction_type = normalize_transaction_type($raw_transaction_type);
+    $amount = $transaction_type === 'principal_increase' ? abs($raw_amount) : $raw_amount;
     $note = trim($_POST['note'] ?? '');
     if ($date=='' || $amount<=0) $errors[]='Datum en bedrag zijn verplicht.';
+    if (!is_valid_transaction_type($raw_transaction_type)) $errors[]='Ongeldig transactietype.';
     if (!$errors) {
-        $upd = $db->prepare("UPDATE payments SET date=?, amount=?, note=? WHERE id=? AND loan_id=?");
-        $upd->execute([$date, $amount, $note, $payment_id, $loan['id']]);
+        $upd = $db->prepare("UPDATE payments SET date=?, amount=?, transaction_type=?, note=? WHERE id=? AND loan_id=?");
+        $upd->execute([$date, $amount, $transaction_type, $note, $payment_id, $loan['id']]);
         header('Location: '.BASEDIR.'/loan.php?id='.$loan['id'].'&pEdit=1'); exit;
     }
 }
@@ -47,12 +51,16 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_payment'])) {
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
     if (!$can_edit || $u['role']==='borrower') { http_response_code(403); exit; }
     $date = $_POST['date'] ?? '';
-    $amount = (float)($_POST['amount'] ?? 0);
+    $raw_amount = (float)($_POST['amount'] ?? 0);
+    $raw_transaction_type = $_POST['transaction_type'] ?? 'payment';
+    $transaction_type = normalize_transaction_type($raw_transaction_type);
+    $amount = $transaction_type === 'principal_increase' ? abs($raw_amount) : $raw_amount;
     $note = trim($_POST['note'] ?? '');
     if ($date=='' || $amount<=0) $errors[]='Datum en bedrag zijn verplicht.';
+    if (!is_valid_transaction_type($raw_transaction_type)) $errors[]='Ongeldig transactietype.';
     if (!$errors) {
-        $ins=$db->prepare("INSERT INTO payments(loan_id,date,amount,note) VALUES(?,?,?,?)");
-        $ins->execute([$loan['id'],$date,$amount,$note]);
+        $ins=$db->prepare("INSERT INTO payments(loan_id,date,amount,transaction_type,note) VALUES(?,?,?,?,?)");
+        $ins->execute([$loan['id'],$date,$amount,$transaction_type,$note]);
 
         $paymentsStmt = $db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
         $paymentsStmt->execute([$loan['id']]);
@@ -67,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
                 'amount' => $last['amount'] ?? $amount,
                 'calculated_interest' => $last['interest'] ?? null,
                 'calculated_payment' => $last['principal'] ?? null,
+                'transaction_type' => $last['transaction_type'] ?? $transaction_type,
                 'amount_left' => $alloc['remaining'],
             ];
             curl_post_json(WEBHOOK_URL, $payload);
@@ -105,7 +114,8 @@ $payments = $paymentsStmt->fetchAll();
 $plan = schedule($loan['principal'], $loan['rate'], $loan['term_months'], $loan['type']);
 $alloc = compute_allocation_with_payments($loan, $payments);
 $current_remaining = $alloc['remaining'];
-$months_left = max(0, $loan['term_months'] - count($payments));
+$months_left = loan_months_left($loan, $alloc['allocations']);
+$elapsed_payment_periods = loan_elapsed_payment_periods($alloc['allocations']);
 $new_payment = calculate_new_payment($current_remaining, $loan['rate'], $months_left);
 
 // Prognose: bereken restant-schema vanaf laatste betaling
@@ -113,7 +123,7 @@ $projection = [];
 if ($months_left > 0) {
     $projection = generate_projection_schedule($current_remaining, $loan['rate'], $months_left, $loan['type']);
     // plak lege rijen voor eerdere maanden zodat grafieklijnen netjes gelijk lopen
-    for ($i = 0; $i < count($payments); $i++) {
+    for ($i = 0; $i < $elapsed_payment_periods; $i++) {
         array_unshift($projection, ['remaining' => null]);
     }
 }
@@ -129,7 +139,7 @@ $projRemaining = array_column($projection, 'remaining');
 <div class="card p-3 mb-4">
   <h1><?= h($loan['name']) ?></h1>
   <p><strong>Huidige restschuld:</strong> <?= money_fmt($current_remaining) ?>
-     (na <?= count($payments) ?> betalingen)</p>
+     (na <?= $elapsed_payment_periods ?> betaaltermijnen, <?= count($payments) ?> transacties)</p>
   <?php if ($new_payment > 0): ?>
     <p><strong>Adviesbedrag:</strong> <?= money_fmt($new_payment) ?> per maand
        om binnen <?= $months_left ?> maanden klaar te zijn.</p>
@@ -200,14 +210,21 @@ $projRemaining = array_column($projection, 'remaining');
       <?php if ($can_edit && $u['role']!=='borrower'): ?>
   <div class="col-lg-4">
     <div class="card p-3">
-      <h5 class="mb-3">Betaling toevoegen</h5>
+      <h5 class="mb-3">Transactie toevoegen</h5>
       <?php if ($errors): ?><div class="alert alert-danger"><?php echo implode('<br>', array_map('htmlspecialchars',$errors)); ?></div><?php endif; ?>
       <?php if ($can_edit && $u['role']!=='borrower'): ?>
       <form method="post">
         <?php csrf_field(); ?>
         <input type="hidden" name="add_payment" value="1">
         <div class="mb-3"><label class="form-label">Datum</label><input class="form-control" type="date" name="date" required></div>
-        <div class="mb-3"><label class="form-label">Bedrag (€)</label><input class="form-control" type="number" step="0.01" name="amount" required></div>
+        <div class="mb-3">
+          <label class="form-label">Type</label>
+          <select class="form-select" name="transaction_type">
+            <option value="payment">Betaling / aflossing</option>
+            <option value="principal_increase">Hoofdsomverhoging / extra opname</option>
+          </select>
+        </div>
+        <div class="mb-3"><label class="form-label">Bedrag (€)</label><input class="form-control" type="number" step="0.01" min="0.01" name="amount" required></div>
         <div class="mb-3"><label class="form-label">Notitie</label><input class="form-control" name="note"></div>
         <button class="btn btn-primary w-100">Toevoegen</button>
       </form>
@@ -219,20 +236,21 @@ $projRemaining = array_column($projection, 'remaining');
       <?php endif; ?>
 
 <div class="card p-3 mb-4">
-  <h5>Overzicht betalingen</h5>
+  <h5>Overzicht transacties</h5>
   <?php if (isset($_GET['pOK'])): ?><div class="alert alert-success">Betaling toegevoegd.</div><?php endif; ?>
   <?php if (isset($_GET['pEdit'])): ?><div class="alert alert-success">Betaling bijgewerkt.</div><?php endif; ?>
   <?php if (isset($_GET['pDelete'])): ?><div class="alert alert-success">Betaling verwijderd.</div><?php endif; ?>
   <table class="table table-hover">
     <thead>
       <tr>
-        <th>Datum</th><th>Bedrag</th><th>Rente</th><th>Aflossing</th><th>Restschuld</th><th>Notitie</th><?php if ($can_edit && $u['role']!=='borrower' && !empty(array_filter($alloc['allocations'], fn($a) => isset($a['id']) && $a['id'] > 0))): ?><th>Acties</th><?php endif; ?>
+        <th>Datum</th><th>Type</th><th>Bedrag</th><th>Rente</th><th>Aflossing / mutatie</th><th>Restschuld</th><th>Notitie</th><?php if ($can_edit && $u['role']!=='borrower' && !empty(array_filter($alloc['allocations'], fn($a) => isset($a['id']) && $a['id'] > 0))): ?><th>Acties</th><?php endif; ?>
       </tr>
     </thead>
     <tbody>
       <?php foreach(array_reverse($alloc['allocations']) as $a): ?>
         <tr>
           <td><?= date('d-m-Y', strtotime($a['date'])) ?></td>
+          <td><?= h($a['type_label'] ?? transaction_type_label($a['transaction_type'] ?? 'payment')) ?></td>
           <td><?=money_fmt($a['amount'])?></td>
           <td><?=money_fmt($a['interest'])?></td>
           <td><?=money_fmt($a['principal'])?></td>
@@ -258,7 +276,7 @@ $projRemaining = array_column($projection, 'remaining');
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Betaling bewerken</h5>
+        <h5 class="modal-title">Transactie bewerken</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" id="editForm<?=$a['id']?>">
@@ -271,8 +289,15 @@ $projRemaining = array_column($projection, 'remaining');
             <input type="date" class="form-control" name="date" value="<?=h($a['date'])?>" required>
           </div>
           <div class="mb-3">
+            <label class="form-label">Type</label>
+            <select class="form-select" name="transaction_type">
+              <option value="payment" <?= ($a['transaction_type'] ?? 'payment') === 'payment' ? 'selected' : '' ?>>Betaling / aflossing</option>
+              <option value="principal_increase" <?= ($a['transaction_type'] ?? 'payment') === 'principal_increase' ? 'selected' : '' ?>>Hoofdsomverhoging / extra opname</option>
+            </select>
+          </div>
+          <div class="mb-3">
             <label class="form-label">Bedrag (€)</label>
-            <input type="number" step="0.01" class="form-control" name="amount" value="<?=h($a['amount'])?>" required>
+            <input type="number" step="0.01" min="0.01" class="form-control" name="amount" value="<?=h($a['amount'])?>" required>
           </div>
           <div class="mb-3">
             <label class="form-label">Notitie</label>

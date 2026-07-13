@@ -143,14 +143,17 @@ Stuur `Authorization: Bearer {API_TOKEN}` header.
 - `GET /api/?r=loans/{id}/schedule` - Volledig aflossingsschema
 - `POST /api/?r=loans/{id}/payments` - Nieuwe betaling toevoegen
 
-Voorbeeld POST betaling:
+Voorbeeld POST transactie:
 ```json
 {
   "date": "2023-12-01",
   "amount": 500.00,
+  "transaction_type": "payment",
   "note": "Maandelijkse betaling"
 }
 ```
+
+Gebruik `transaction_type: "principal_increase"` om vanaf een specifieke datum de openstaande hoofdsom te verhogen, bijvoorbeeld bij een extra opname/terugbetaling aan de leningnemer. Het bedrag blijft positief; de transactiesoort bepaalt dat de restschuld omhoog gaat.
 
 ## Ontwikkeling
 

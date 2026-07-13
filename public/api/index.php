@@ -54,8 +54,14 @@ try {
         $payments = $paymentsStmt->fetchAll();
         $alloc = compute_allocation_with_payments($loan, $payments);
         $current_remaining = $alloc['remaining'];
-        $months_left = max(0, $loan['term_months'] - count($payments));
+        $months_left = loan_months_left($loan, $alloc['allocations']);
         $projection = generate_projection_schedule($current_remaining, $loan['rate'], $months_left, $loan['type']);
+        foreach ($projection as $idx => &$row) {
+            $row['transaction_type'] = 'projection';
+            $row['type_label'] = 'Prognose';
+            $row['period'] = loan_elapsed_payment_periods($alloc['allocations']) + $idx + 1;
+        }
+        unset($row);
         $full_schedule = array_merge($alloc['allocations'], $projection);
         echo json_encode($full_schedule); exit;
     }
@@ -67,11 +73,15 @@ try {
         if (!$loan) { http_response_code(404); echo json_encode(['error'=>'Not found']); exit; }
         $body = json_decode(file_get_contents('php://input'), true) ?: [];
         $date = $body['date'] ?? null;
-        $amount = isset($body['amount']) ? (float)$body['amount'] : 0.0;
+        $raw_amount = isset($body['amount']) ? (float)$body['amount'] : 0.0;
+        $raw_transaction_type = $body['transaction_type'] ?? $body['type'] ?? 'payment';
+        $transaction_type = normalize_transaction_type($raw_transaction_type);
+        $amount = $transaction_type === 'principal_increase' ? abs($raw_amount) : $raw_amount;
         $note = $body['note'] ?? '';
-        if (!$date || $amount<=0) { http_response_code(400); echo json_encode(['error'=>'date and amount required']); exit; }
-        $ins=$db->prepare("INSERT INTO payments(loan_id,date,amount,note) VALUES(?,?,?,?)");
-        $ins->execute([$id,$date,$amount,$note]);
+        if (!is_valid_transaction_type($raw_transaction_type)) { http_response_code(400); echo json_encode(['error'=>'invalid transaction_type']); exit; }
+        if (!$date || $amount<=0) { http_response_code(400); echo json_encode(['error'=>'date and positive amount required']); exit; }
+        $ins=$db->prepare("INSERT INTO payments(loan_id,date,amount,transaction_type,note) VALUES(?,?,?,?,?)");
+        $ins->execute([$id,$date,$amount,$transaction_type,$note]);
         $ps=$db->prepare("SELECT * FROM payments WHERE loan_id=? ORDER BY date ASC, id ASC");
         $ps->execute([$id]);
         $payments=$ps->fetchAll();
@@ -85,6 +95,7 @@ try {
                 'amount' => $last['amount'] ?? $amount,
                 'calculated_interest' => $last['interest'] ?? null,
                 'calculated_payment' => $last['principal'] ?? null,
+                'transaction_type' => $last['transaction_type'] ?? $transaction_type,
                 'amount_left' => $alloc['remaining'],
             ];
             curl_post_json(WEBHOOK_URL, $payload);

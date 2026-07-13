@@ -96,6 +96,52 @@ final class FunctionsTest extends TestCase {
         $this->assertEquals(419.1, $resAsc['remaining']);
     }
 
+
+    public function testPrincipalIncreaseRaisesOutstandingPrincipalAndFutureInterest() {
+        $loan = ['principal'=>10000, 'rate'=>12, 'term_months'=>12, 'type'=>'annuity'];
+        $payments = [
+            ['id'=>1, 'date'=>'2026-01-01', 'transaction_type'=>'payment', 'amount'=>1000, 'note'=>'Eerste betaling'],
+            ['id'=>2, 'date'=>'2026-02-01', 'transaction_type'=>'principal_increase', 'amount'=>5000, 'note'=>'Extra opname'],
+            ['id'=>3, 'date'=>'2026-03-01', 'transaction_type'=>'payment', 'amount'=>1000, 'note'=>'Betaling na opname'],
+        ];
+
+        $res = compute_allocation_with_payments($loan, $payments);
+
+        $this->assertEquals(9100.0, $res['allocations'][0]['remaining']);
+        $this->assertEquals('principal_increase', $res['allocations'][1]['transaction_type']);
+        $this->assertEquals(0.0, $res['allocations'][1]['interest']);
+        $this->assertEquals(-5000.0, $res['allocations'][1]['principal']);
+        $this->assertEquals(5000.0, $res['allocations'][1]['principal_increase']);
+        $this->assertEquals(14100.0, $res['allocations'][1]['remaining']);
+
+        // Future interest is calculated over the increased outstanding principal.
+        $this->assertEquals(141.0, $res['allocations'][2]['interest']);
+        $this->assertEquals(859.0, $res['allocations'][2]['principal']);
+        $this->assertEquals(13241.0, $res['remaining']);
+
+        $summary = summarize_allocations_for_year($res['allocations'], 2026);
+        $this->assertEquals(2000.0, $summary['total_amount']);
+        $this->assertEquals(241.0, $summary['total_interest']);
+        $this->assertEquals(1759.0, $summary['total_principal']);
+        $this->assertEquals(5000.0, $summary['total_principal_increase']);
+    }
+
+    public function testPrincipalIncreaseDoesNotConsumeRepaymentPeriod() {
+        $loan = ['principal'=>10000, 'rate'=>12, 'term_months'=>12, 'type'=>'annuity'];
+        $payments = [
+            ['date'=>'2026-01-01', 'transaction_type'=>'payment', 'amount'=>1000],
+            ['date'=>'2026-02-01', 'transaction_type'=>'principal_increase', 'amount'=>-5000],
+            ['date'=>'2026-03-01', 'transaction_type'=>'payment', 'amount'=>1000],
+        ];
+
+        $res = compute_allocation_with_payments($loan, $payments);
+
+        $this->assertEquals(2, loan_elapsed_payment_periods($res['allocations']));
+        $this->assertEquals(10, loan_months_left($loan, $res['allocations']));
+        $this->assertEquals(2000.0, total_paid($payments));
+    }
+
+
     public function testCalculateNewPayment() {
         $p = calculate_new_payment(500, 6, 10);
         $this->assertGreaterThan(0, $p);

@@ -41,9 +41,31 @@ function schedule($principal, $rate_year, $term_months, $type='annuity') {
     return $rows;
 }
 
+function valid_transaction_types() {
+    return ['payment', 'principal_increase'];
+}
+
+function is_valid_transaction_type($type): bool {
+    return in_array((string)$type, valid_transaction_types(), true);
+}
+
+function normalize_transaction_type($type) {
+    $type = (string)($type ?? 'payment');
+    return is_valid_transaction_type($type) ? $type : 'payment';
+}
+
+function transaction_type_label($type) {
+    $type = normalize_transaction_type($type);
+    return $type === 'principal_increase' ? 'Hoofdsomverhoging' : 'Betaling';
+}
+
 function total_paid($payments) {
     $sum = 0;
-    foreach ($payments as $p) $sum += (float)$p['amount'];
+    foreach ($payments as $p) {
+        if (normalize_transaction_type($p['transaction_type'] ?? 'payment') === 'payment') {
+            $sum += abs((float)$p['amount']);
+        }
+    }
     return $sum;
 }
 
@@ -51,24 +73,97 @@ function compute_allocation_with_payments($loan, $payments) {
     $r = ($loan['rate']/100.0)/12.0;
     $remaining = (float)$loan['principal'];
     $alloc = [];
+    $paymentSequence = 0;
+
     foreach ($payments as $p) {
-        $amount = (float)$p['amount'];
-        $interest = $remaining * $r;
-        $principal = $amount - $interest;
-        if ($principal < 0) $principal = 0;
-        $remaining -= $principal;
-        if ($remaining < 0) $remaining = 0;
+        $transactionType = normalize_transaction_type($p['transaction_type'] ?? $p['type'] ?? 'payment');
+        $rawAmount = (float)$p['amount'];
+        $amount = $transactionType === 'principal_increase' ? abs($rawAmount) : $rawAmount;
+        $interest = 0.0;
+        $principal = 0.0;
+        $principalIncrease = 0.0;
+
+        if ($transactionType === 'principal_increase') {
+            // A principal increase means new money is added to the outstanding loan.
+            // It is not an interest-bearing payment row itself; future rows accrue interest on the new balance.
+            $principal = -$amount;
+            $principalIncrease = $amount;
+            $remaining += $amount;
+        } else {
+            $paymentSequence++;
+            $interest = $remaining * $r;
+            $principal = $amount - $interest;
+            if ($principal < 0) $principal = 0;
+            $remaining -= $principal;
+            if ($remaining < 0) $remaining = 0;
+        }
+
         $alloc[] = [
             'id' => isset($p['id']) ? (int)$p['id'] : null,
             'date' => $p['date'],
+            'transaction_type' => $transactionType,
+            'type_label' => transaction_type_label($transactionType),
             'amount' => round($amount, 2),
             'interest' => round($interest, 2),
             'principal' => round($principal, 2),
+            'principal_increase' => round($principalIncrease, 2),
             'remaining' => round($remaining, 2),
+            'payment_sequence' => $transactionType === 'payment' ? $paymentSequence : null,
             'note' => $p['note'] ?? '',
         ];
     }
     return ['remaining'=>round($remaining,2), 'allocations'=>$alloc];
+}
+
+function loan_elapsed_payment_periods(array $allocations): int {
+    $count = 0;
+    foreach ($allocations as $a) {
+        if (normalize_transaction_type($a['transaction_type'] ?? 'payment') === 'payment') {
+            $count++;
+        }
+    }
+    return $count;
+}
+
+function loan_months_left(array $loan, array $allocations): int {
+    return max(0, (int)$loan['term_months'] - loan_elapsed_payment_periods($allocations));
+}
+
+function summarize_allocations_for_year(array $allocations, int $year): array {
+    $yearlyAllocations = array_values(array_filter($allocations, function($a) use ($year) {
+        return (int)date('Y', strtotime($a['date'])) === $year;
+    }));
+
+    $monthlyData = [];
+    for ($m = 1; $m <= 12; $m++) {
+        $monthlyData[$m] = [
+            'payment_amount' => 0.0,
+            'principal' => 0.0,
+            'interest' => 0.0,
+            'principal_increase' => 0.0,
+        ];
+    }
+
+    foreach ($yearlyAllocations as $a) {
+        $month = (int)date('m', strtotime($a['date']));
+        if (normalize_transaction_type($a['transaction_type'] ?? 'payment') === 'principal_increase') {
+            $monthlyData[$month]['principal_increase'] += (float)($a['principal_increase'] ?? $a['amount']);
+            continue;
+        }
+
+        $monthlyData[$month]['payment_amount'] += (float)$a['amount'];
+        $monthlyData[$month]['interest'] += (float)$a['interest'];
+        $monthlyData[$month]['principal'] += max(0.0, (float)$a['principal']);
+    }
+
+    return [
+        'yearly_allocations' => $yearlyAllocations,
+        'monthly_data' => $monthlyData,
+        'total_amount' => array_sum(array_column($monthlyData, 'payment_amount')),
+        'total_interest' => array_sum(array_column($monthlyData, 'interest')),
+        'total_principal' => array_sum(array_column($monthlyData, 'principal')),
+        'total_principal_increase' => array_sum(array_column($monthlyData, 'principal_increase')),
+    ];
 }
 
 function calculate_new_payment($remaining, $rate_year, $months_left) {

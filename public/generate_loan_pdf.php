@@ -26,28 +26,14 @@ $payments = $paymentsStmt->fetchAll();
 
 $alloc = compute_allocation_with_payments($loan, $payments);
 
-// Filter allocaties op jaar
-$yearly_alloc = array_filter($alloc['allocations'], function($a) use ($year) {
-    return date('Y', strtotime($a['date'])) == $year;
-});
-
-// Groepeer per maand
-$monthly_data = [];
-for ($m = 1; $m <= 12; $m++) {
-    $monthly_data[$m] = ['principal' => 0, 'interest' => 0, 'amount' => 0];
-}
-
-foreach ($yearly_alloc as $a) {
-    $month = (int)date('m', strtotime($a['date']));
-    $monthly_data[$month]['principal'] += (float)$a['principal'];
-    $monthly_data[$month]['interest']  += (float)$a['interest'];
-    $monthly_data[$month]['amount']    += (float)$a['amount'];
-}
-
-// Totalen
-$total_amount    = array_sum(array_column($yearly_alloc, 'amount'));
-$total_interest  = array_sum(array_column($yearly_alloc, 'interest'));
-$total_principal = array_sum(array_column($yearly_alloc, 'principal'));
+// Rapportagesamenvatting: betalingen, rente, aflossing en hoofdsomverhogingen gescheiden houden.
+$year_summary = summarize_allocations_for_year($alloc['allocations'], $year);
+$yearly_alloc = $year_summary['yearly_allocations'];
+$monthly_data = $year_summary['monthly_data'];
+$total_amount = $year_summary['total_amount'];
+$total_interest = $year_summary['total_interest'];
+$total_principal = $year_summary['total_principal'];
+$total_principal_increase = $year_summary['total_principal_increase'];
 
 // Cumulatieve aflossing
 $cumulative = 0;
@@ -302,6 +288,12 @@ $pdf->SetFont('helvetica', '', 10);
 $pdf->Cell(90, 6, 'Restschuld per 31 december ' . $year . ':', 0, 0, 'R');
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->Cell(90, 6, money_fmt($rest_12_31), 0, 1, 'L');
+if ($total_principal_increase > 0) {
+    $pdf->SetFont('helvetica', '', 10);
+    $pdf->Cell(90, 6, 'Hoofdsomverhogingen in ' . $year . ':', 0, 0, 'R');
+    $pdf->SetFont('helvetica', 'B', 10);
+    $pdf->Cell(90, 6, money_fmt($total_principal_increase), 0, 1, 'L');
+}
 
 $pdf->Ln(15);
 
@@ -313,11 +305,12 @@ $pdf->Cell(0, 10, 'Maandelijks Overzicht', 0, 1);
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->SetFillColor(66, 153, 225);
 $pdf->SetTextColor(255, 255, 255);
-$pdf->Cell(35, 8, 'Maand', 1, 0, 'C', true);
-$pdf->Cell(40, 8, 'Totaal Betaald', 1, 0, 'C', true);
-$pdf->Cell(40, 8, 'Rente', 1, 0, 'C', true);
-$pdf->Cell(40, 8, 'Aflossing', 1, 0, 'C', true);
-$pdf->Cell(25, 8, '% (rente/bedrag)', 1, 1, 'C', true);
+$pdf->Cell(30, 8, 'Maand', 1, 0, 'C', true);
+$pdf->Cell(33, 8, 'Betaald', 1, 0, 'C', true);
+$pdf->Cell(32, 8, 'Rente', 1, 0, 'C', true);
+$pdf->Cell(32, 8, 'Aflossing', 1, 0, 'C', true);
+$pdf->Cell(33, 8, 'Verhoging', 1, 0, 'C', true);
+$pdf->Cell(20, 8, '% rente', 1, 1, 'C', true);
 
 $pdf->SetFont('helvetica', '', 9);
 $pdf->SetTextColor(26, 32, 44);
@@ -327,15 +320,16 @@ $months_nl = ['', 'Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni',
 
 $fill = false;
 foreach ($monthly_data as $m => $data) {
-    if ($data['amount'] > 0) {
+    if ($data['payment_amount'] > 0 || $data['principal_increase'] > 0) {
         $pdf->SetFillColor(248, 250, 252);
-        $percentage = $data['amount'] > 0 ? ($data['interest'] / $data['amount']) * 100 : 0;
-        
-        $pdf->Cell(35, 7, $months_nl[$m], 1, 0, 'L', $fill);
-        $pdf->Cell(40, 7, money_fmt($data['amount']), 1, 0, 'R', $fill);
-        $pdf->Cell(40, 7, money_fmt($data['interest']), 1, 0, 'R', $fill);
-        $pdf->Cell(40, 7, money_fmt($data['principal']), 1, 0, 'R', $fill);
-        $pdf->Cell(25, 7, number_format($percentage, 1) . '%', 1, 1, 'C', $fill);
+        $percentage = $data['payment_amount'] > 0 ? ($data['interest'] / $data['payment_amount']) * 100 : 0;
+
+        $pdf->Cell(30, 7, $months_nl[$m], 1, 0, 'L', $fill);
+        $pdf->Cell(33, 7, $data['payment_amount'] > 0 ? money_fmt($data['payment_amount']) : '—', 1, 0, 'R', $fill);
+        $pdf->Cell(32, 7, money_fmt($data['interest']), 1, 0, 'R', $fill);
+        $pdf->Cell(32, 7, money_fmt($data['principal']), 1, 0, 'R', $fill);
+        $pdf->Cell(33, 7, $data['principal_increase'] > 0 ? money_fmt($data['principal_increase']) : '—', 1, 0, 'R', $fill);
+        $pdf->Cell(20, 7, $data['payment_amount'] > 0 ? number_format($percentage, 1) . '%' : '—', 1, 1, 'C', $fill);
         $fill = !$fill;
     }
 }
@@ -344,12 +338,13 @@ foreach ($monthly_data as $m => $data) {
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->SetFillColor(66, 153, 225);
 $pdf->SetTextColor(255, 255, 255);
-$pdf->Cell(35, 8, 'TOTAAL', 1, 0, 'C', true);
-$pdf->Cell(40, 8, money_fmt($total_amount), 1, 0, 'R', true);
-$pdf->Cell(40, 8, money_fmt($total_interest), 1, 0, 'R', true);
-$pdf->Cell(40, 8, money_fmt($total_principal), 1, 0, 'R', true);
+$pdf->Cell(30, 8, 'TOTAAL', 1, 0, 'C', true);
+$pdf->Cell(33, 8, money_fmt($total_amount), 1, 0, 'R', true);
+$pdf->Cell(32, 8, money_fmt($total_interest), 1, 0, 'R', true);
+$pdf->Cell(32, 8, money_fmt($total_principal), 1, 0, 'R', true);
+$pdf->Cell(33, 8, $total_principal_increase > 0 ? money_fmt($total_principal_increase) : '—', 1, 0, 'R', true);
 $percentage_total = $total_amount > 0 ? ($total_interest / $total_amount) * 100 : 0;
-$pdf->Cell(25, 8, number_format($percentage_total, 1) . '%', 1, 1, 'C', true);
+$pdf->Cell(20, 8, number_format($percentage_total, 1) . '%', 1, 1, 'C', true);
 
 $pdf->AddPage();
 
@@ -359,7 +354,7 @@ $pdf->SetTextColor(26, 32, 44);
 $pdf->Cell(0, 10, 'Grafiek: Maandelijkse Betalingen', 0, 1);
 $pdf->Ln(3);
 
-$maxValue = max(array_column($monthly_data, 'amount'));
+$maxValue = max(array_column($monthly_data, 'payment_amount'));
 $graphHeight = 80;
 $graphWidth = 160;
 $barWidth = 12;
@@ -380,12 +375,12 @@ $pdf->Cell(40, 5, 'Bedrag (€)', 0, 0, 'L');
 // Bars
 $x = $startX + 5;
 foreach ($monthly_data as $m => $data) {
-    if ($data['amount'] > 0) {
-        
-        $barHeight = $maxValue > 0 ? ($data['amount'] / $maxValue) * $graphHeight * 0.9 : 0;
+    if ($data['payment_amount'] > 0) {
+
+        $barHeight = $maxValue > 0 ? ($data['payment_amount'] / $maxValue) * $graphHeight * 0.9 : 0;
 
         // Bereken segmenthoogtes
-        $principalHeight = $data['amount'] > 0 ? ($data['principal'] / $data['amount']) * $barHeight : 0;
+        $principalHeight = $data['payment_amount'] > 0 ? ($data['principal'] / $data['payment_amount']) * $barHeight : 0;
         $interestHeight = $barHeight - $principalHeight;
 
         $baseline = $startY + $graphHeight;
@@ -448,13 +443,13 @@ $pdf->SetLineWidth(1);
 $pointsX = [];
 $pointsY = [];
 
-$activeMonths = array_filter($monthly_data, function($d) { return $d['amount'] > 0; });
+$activeMonths = array_filter($monthly_data, function($d) { return $d['payment_amount'] > 0; });
 $monthCount = count($activeMonths);
 $xSpacing = $monthCount > 0 ? $lineWidth / $monthCount : 0;
 
 $i = 0;
 foreach ($cumulative_data as $m => $cumVal) {
-    if ($monthly_data[$m]['amount'] > 0) {
+    if ($monthly_data[$m]['payment_amount'] > 0) {
         $x = $lineStartX + ($i * $xSpacing);
         $y = $lineStartY + $lineHeight - ($maxCumulative > 0 ? ($cumVal / $maxCumulative) * $lineHeight * 0.9 : 0);
         
@@ -531,11 +526,12 @@ if (count($yearly_alloc) > 0 || $show_start_row) {
     $pdf->SetFont('helvetica', 'B', 9);
     $pdf->SetFillColor(66, 153, 225);
     $pdf->SetTextColor(255, 255, 255);
-    $pdf->Cell(30, 7, 'Datum', 1, 0, 'C', true);
-    $pdf->Cell(35, 7, 'Bedrag', 1, 0, 'C', true);
-    $pdf->Cell(35, 7, 'Rente', 1, 0, 'C', true);
-    $pdf->Cell(35, 7, 'Aflossing', 1, 0, 'C', true);
-    $pdf->Cell(45, 7, 'Restschuld', 1, 1, 'C', true);
+    $pdf->Cell(28, 7, 'Datum', 1, 0, 'C', true);
+    $pdf->Cell(32, 7, 'Type', 1, 0, 'C', true);
+    $pdf->Cell(30, 7, 'Bedrag', 1, 0, 'C', true);
+    $pdf->Cell(28, 7, 'Rente', 1, 0, 'C', true);
+    $pdf->Cell(32, 7, 'Mutatie', 1, 0, 'C', true);
+    $pdf->Cell(30, 7, 'Restschuld', 1, 1, 'C', true);
     
     $pdf->SetFont('helvetica', '', 8);
     $pdf->SetTextColor(26, 32, 44);
@@ -547,7 +543,7 @@ if (count($yearly_alloc) > 0 || $show_start_row) {
         $pdf->SetFont('helvetica', 'I', 8);
 
         $pdf->Cell(
-            30,
+            28,
             6,
             date('d-m-Y', strtotime($loan['start_date'])),
             1,
@@ -555,11 +551,12 @@ if (count($yearly_alloc) > 0 || $show_start_row) {
             'C',
             true
         );
-        $pdf->Cell(35, 6, '—', 1, 0, 'C', true); // Bedrag
-        $pdf->Cell(35, 6, '—', 1, 0, 'C', true); // Rente
-        $pdf->Cell(35, 6, '—', 1, 0, 'C', true); // Aflossing
+        $pdf->Cell(32, 6, 'Start', 1, 0, 'C', true);
+        $pdf->Cell(30, 6, '—', 1, 0, 'C', true); // Bedrag
+        $pdf->Cell(28, 6, '—', 1, 0, 'C', true); // Rente
+        $pdf->Cell(32, 6, '—', 1, 0, 'C', true); // Mutatie
         $pdf->Cell(
-            45,
+            30,
             6,
             money_fmt($loan['principal']),
             1,
@@ -575,11 +572,12 @@ if (count($yearly_alloc) > 0 || $show_start_row) {
 
     foreach ($yearly_alloc as $a) {
         $pdf->SetFillColor(248, 250, 252);
-        $pdf->Cell(30, 6, date('d-m-Y', strtotime($a['date'])), 1, 0, 'C', $fill);
-        $pdf->Cell(35, 6, money_fmt($a['amount']), 1, 0, 'R', $fill);
-        $pdf->Cell(35, 6, money_fmt($a['interest']), 1, 0, 'R', $fill);
-        $pdf->Cell(35, 6, money_fmt($a['principal']), 1, 0, 'R', $fill);
-        $pdf->Cell(45, 6, money_fmt($a['remaining']), 1, 1, 'R', $fill);
+        $pdf->Cell(28, 6, date('d-m-Y', strtotime($a['date'])), 1, 0, 'C', $fill);
+        $pdf->Cell(32, 6, $a['type_label'] ?? transaction_type_label($a['transaction_type'] ?? 'payment'), 1, 0, 'L', $fill);
+        $pdf->Cell(30, 6, money_fmt($a['amount']), 1, 0, 'R', $fill);
+        $pdf->Cell(28, 6, money_fmt($a['interest']), 1, 0, 'R', $fill);
+        $pdf->Cell(32, 6, money_fmt($a['principal']), 1, 0, 'R', $fill);
+        $pdf->Cell(30, 6, money_fmt($a['remaining']), 1, 1, 'R', $fill);
         $fill = !$fill;
     }
 }
