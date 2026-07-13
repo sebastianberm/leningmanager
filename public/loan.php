@@ -306,7 +306,7 @@ $projRemaining = array_column($projection, 'remaining');
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
-          <button type="button" class="btn btn-danger" onclick="if (confirm('Weet je het zeker?')) { document.getElementById('updateFlag<?=$a['id']?>').name = 'delete_payment'; document.getElementById('editForm<?=$a['id']?>').submit(); }">Verwijderen</button>
+          <button type="button" class="btn btn-danger" onclick="if (confirm('Weet je het zeker?')) { const flag = document.getElementById('updateFlag<?=$a['id']?>'); flag.name = 'delete_payment'; flag.value = '<?=$a['id']?>'; document.getElementById('editForm<?=$a['id']?>').submit(); }">Verwijderen</button>
           <button type="submit" class="btn btn-primary">Opslaan</button>
         </div>
       </form>
